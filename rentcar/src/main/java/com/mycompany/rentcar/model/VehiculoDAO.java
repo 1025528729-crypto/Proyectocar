@@ -1,6 +1,7 @@
 package com.mycompany.rentcar.model;
 
 import com.mycompany.rentcar.config.Conexion;
+import com.mycompany.rentcar.presenter.MarcaItem;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -29,23 +30,23 @@ public class VehiculoDAO {
             return false;
         }
     }
+    
     public boolean eliminar(String placa) {
-    String sql = "DELETE FROM vehiculos WHERE placa = ?";
+        String sql = "DELETE FROM vehiculos WHERE placa = ?";
 
-    try (Connection con = Conexion.getConexion();
-         PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection con = Conexion.getConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
 
-        ps.setString(1, placa);
-        int filasAfectadas = ps.executeUpdate();
-        return filasAfectadas > 0;
+            ps.setString(1, placa);
+            int filasAfectadas = ps.executeUpdate();
+            return filasAfectadas > 0;
 
-    } catch (SQLException e) {
-        System.err.println("Error al eliminar vehículo: " + e.getMessage());
-        return false;
+        } catch (SQLException e) {
+            System.err.println("Error al eliminar vehículo: " + e.getMessage());
+            return false;
+        }
     }
-}
 
-    // Nuevo método para consultar todos los vehículos
     public List<Vehiculo> listar() {
         List<Vehiculo> lista = new ArrayList<>();
         String sql = "SELECT * FROM vehiculos";
@@ -68,5 +69,33 @@ public class VehiculoDAO {
         }
 
         return lista;
+    }
+
+    // ==========================================================
+    // NUEVO MÉTODO: Obtiene las marcas únicas desde la tabla vehículos
+    // y les asigna automáticamente el nombre de archivo (ej: "audi.jpg")
+    // ==========================================================
+    public List<MarcaItem> obtenerMarcas() {
+        List<MarcaItem> listaMarcas = new ArrayList<>();
+        // Consultamos las marcas distintas que ya tienes guardadas en tus vehículos
+        String sql = "SELECT DISTINCT marca FROM vehiculos WHERE marca IS NOT NULL"; 
+        
+        try (Connection con = Conexion.getConexion();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+             
+            int id = 1;
+            while (rs.next()) {
+                String nombreMarca = rs.getString("marca");
+                // Convertimos el nombre a minúsculas para que coincida con tu imagen (ej: "Audi" -> "audi.jpg")
+                String archivoImagen = nombreMarca.toLowerCase().trim() + ".jpg";
+                
+                listaMarcas.add(new MarcaItem(id, nombreMarca, archivoImagen));
+                id++;
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al obtener las marcas: " + e.getMessage());
+        }
+        return listaMarcas;
     }
 }
