@@ -117,8 +117,6 @@ public class VehiculoView extends JFrame {
         );
 
         initComponents();
-
-        setLocationRelativeTo(null);
     }
 
     // ============================================================
@@ -129,10 +127,11 @@ public class VehiculoView extends JFrame {
 
         setTitle("RentCar - Gestión de Vehículos");
 
-        setSize(1100, 650);
+        // Ventana maximizada para aprovechar toda la pantalla
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
 
         setMinimumSize(
-                new Dimension(950, 600)
+                new Dimension(1100, 700)
         );
 
         setDefaultCloseOperation(
