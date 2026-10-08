@@ -1,20 +1,17 @@
 package com.mycompany.rentcar;
 
-import com.mycompany.rentcar.model.VehiculoDAO;
-import com.mycompany.rentcar.presenter.VehiculoPresenter;
-import com.mycompany.rentcar.view.VehiculoView;
+import com.mycompany.rentcar.presenter.MainPublicPresenter;
+import com.mycompany.rentcar.view.MainPublicView;
 import javax.swing.SwingUtilities;
 
 public class Rentcar {
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            VehiculoView view = new VehiculoView();
-            VehiculoDAO model = new VehiculoDAO();
-            
-            new VehiculoPresenter(view, model);
-            
-            view.setVisible(true);
+            // Inicia la vista pública accesible para cualquier persona
+            MainPublicView publicView = new MainPublicView();
+            new MainPublicPresenter(publicView);
+            publicView.setVisible(true);
         });
     }
 }

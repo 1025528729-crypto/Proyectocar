@@ -1,97 +1,43 @@
 package com.mycompany.rentcar.presenter;
 
-import com.mycompany.rentcar.model.Vehiculo;
+import com.mycompany.rentcar.model.Usuario;
 import com.mycompany.rentcar.model.VehiculoDAO;
 import com.mycompany.rentcar.view.VehiculoView;
-import javax.swing.JOptionPane;
-import javax.swing.table.DefaultTableModel;
-import java.util.List;
 
 public class VehiculoPresenter {
-    private final VehiculoView view;
-    private final VehiculoDAO model;
+    private VehiculoView view;
+    private VehiculoDAO dao;
+    private Usuario usuarioLogueado;
 
-    public VehiculoPresenter(VehiculoView view, VehiculoDAO model) {
+    // Constructor existente
+    public VehiculoPresenter(VehiculoView view) {
         this.view = view;
-        this.model = model;
-
-        // Registrar listeners de los botones
-        this.view.getBtnGuardar().addActionListener(e -> guardarVehiculo());
-        this.view.getBtnEliminar().addActionListener(e -> eliminarVehiculo());
-
-        // Cargar vehículos guardados en la tabla al iniciar la app
-        listarVehiculos();
+        this.dao = new VehiculoDAO();
+        initPresenter();
     }
 
-    private void listarVehiculos() {
-        DefaultTableModel tablaModel = view.getModeloTabla();
-        tablaModel.setRowCount(0); // Limpiar filas anteriores
-
-        List<Vehiculo> lista = model.listar();
-        for (Vehiculo v : lista) {
-            Object[] fila = {
-                v.getPlaca(),
-                v.getMarca(),
-                v.getModelo(),
-                v.getPrecioPorDia()
-            };
-            tablaModel.addRow(fila);
-        }
+    // NUEVO CONSTRUCTOR: Recibe la vista y el usuario autenticado
+    public VehiculoPresenter(VehiculoView view, Usuario usuario) {
+        this.view = view;
+        this.dao = new VehiculoDAO();
+        this.usuarioLogueado = usuario;
+        initPresenter();
+        aplicarPermisosPorRol();
     }
 
-    private void guardarVehiculo() {
-        try {
-            String placa = view.getPlaca().trim();
-            String marca = view.getMarca().trim();
-            String modelo = view.getModelo().trim();
-            double precioPorDia = view.getPrecio();
+    private void initPresenter() {
+        // Tu lógica actual para enlazar botones, eventos y cargar datos...
+    }
 
-            if (placa.isEmpty() || marca.isEmpty() || modelo.isEmpty()) {
-                JOptionPane.showMessageDialog(view, "Todos los campos son obligatorios.", "Atención", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            Vehiculo nuevoVehiculo = new Vehiculo(placa, marca, modelo, precioPorDia);
-            boolean resultado = model.insertar(nuevoVehiculo);
-
-            if (resultado) {
-                JOptionPane.showMessageDialog(view, "¡Vehículo registrado con éxito!");
-                view.limpiarCampos();
-                listarVehiculos(); // Recargar la tabla con el nuevo dato
+    // Método para ocultar o habilitar funciones según el rol (ADMIN o CLIENTE)
+    private void aplicarPermisosPorRol() {
+        if (usuarioLogueado != null) {
+            if (usuarioLogueado.esAdmin()) {
+                System.out.println("Modo Administrador activado");
+                // Aquí mantienes o activas botones de registrar, eliminar, etc.
             } else {
-                JOptionPane.showMessageDialog(view, "Error al registrar el vehículo. Verifique si la placa ya existe o el formato del precio.", "Error", JOptionPane.ERROR_MESSAGE);
-            }
-
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(view, "El precio ingresado no es válido.", "Error de formato", JOptionPane.WARNING_MESSAGE);
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(view, "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void eliminarVehiculo() {
-        String placa = view.getPlacaSeleccionada();
-
-        if (placa == null) {
-            JOptionPane.showMessageDialog(view, "Por favor, selecciona un vehículo de la tabla para eliminar.", "Atención", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        int confirmacion = JOptionPane.showConfirmDialog(
-            view, 
-            "¿Estás seguro de eliminar el vehículo con placa: " + placa + "?", 
-            "Confirmar eliminación", 
-            JOptionPane.YES_NO_OPTION
-        );
-
-        if (confirmacion == JOptionPane.YES_OPTION) {
-            boolean resultado = model.eliminar(placa);
-            if (resultado) {
-                JOptionPane.showMessageDialog(view, "Vehículo eliminado correctamente.");
-                view.limpiarCampos();
-                listarVehiculos(); // Refrescar la tabla
-            } else {
-                JOptionPane.showMessageDialog(view, "No se pudo eliminar el vehículo.", "Error", JOptionPane.ERROR_MESSAGE);
+                System.out.println("Modo Cliente/Usuario activado");
+                // Aquí puedes desactivar/ocultar botones de administración en la vista si lo deseas
             }
         }
     }

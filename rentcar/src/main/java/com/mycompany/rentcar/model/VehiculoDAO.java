@@ -98,4 +98,53 @@ public class VehiculoDAO {
         }
         return listaMarcas;
     }
+
+    // ==========================================================
+    // MÉTODOS ADICIONALES PARA MODO USUARIO
+    // ==========================================================
+    public List<Vehiculo> listarPorMarca(String marca) {
+        List<Vehiculo> lista = new ArrayList<>();
+        String sql = "SELECT * FROM vehiculos WHERE LOWER(marca) = LOWER(?)";
+
+        try (Connection con = Conexion.getConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, marca);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Vehiculo v = new Vehiculo();
+                    v.setPlaca(rs.getString("placa"));
+                    v.setMarca(rs.getString("marca"));
+                    v.setModelo(rs.getString("modelo"));
+                    v.setPrecioPorDia(rs.getDouble("precio_por_dia"));
+                    lista.add(v);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al filtrar por marca: " + e.getMessage());
+        }
+        return lista;
+    }
+
+    public Vehiculo buscarPorPlaca(String placa) {
+        String sql = "SELECT * FROM vehiculos WHERE placa = ?";
+        try (Connection con = Conexion.getConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, placa);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Vehiculo v = new Vehiculo();
+                    v.setPlaca(rs.getString("placa"));
+                    v.setMarca(rs.getString("marca"));
+                    v.setModelo(rs.getString("modelo"));
+                    v.setPrecioPorDia(rs.getDouble("precio_por_dia"));
+                    return v;
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al buscar por placa: " + e.getMessage());
+        }
+        return null;
+    }
 }
