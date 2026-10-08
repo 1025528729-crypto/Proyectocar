@@ -3,6 +3,7 @@ package com.mycompany.rentcar.view;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.JButton;
+import javax.swing.ImageIcon;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -31,6 +32,13 @@ import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import javax.swing.JFileChooser;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
 import java.text.NumberFormat;
@@ -54,6 +62,11 @@ public class VehiculoView extends JFrame {
     private JComboBox<String> comboMarca;
     private JTextField txtModelo;
     private JTextField txtPrecio;
+
+    // FOTO DEL VEHÍCULO
+    private JButton btnSubirFoto;
+    private JLabel lblFotoPreview;
+    private String rutaFotoSeleccionada = "";
 
     private JButton btnGuardar;
     private JButton btnEliminar;
@@ -92,6 +105,164 @@ public class VehiculoView extends JFrame {
     private final Color COLOR_DISPLAY_FONDO = new Color(6, 7, 9);
     private final Color COLOR_DISPLAY_BORDE = new Color(80, 22, 22);
     private final Color COLOR_DISPLAY_ROJO = new Color(255, 35, 35);
+
+    // ============================================================
+    // FOTO DEL VEHÍCULO
+    // ============================================================
+
+    private JPanel crearPanelFoto() {
+
+        JPanel panel = new JPanel(new BorderLayout(12, 0));
+        panel.setOpaque(false);
+
+        lblFotoPreview = new JLabel("SIN FOTO", SwingConstants.CENTER);
+        lblFotoPreview.setFont(orbitron(true, 10f));
+        lblFotoPreview.setForeground(COLOR_GRIS);
+        lblFotoPreview.setBackground(COLOR_CAMPO);
+        lblFotoPreview.setOpaque(true);
+        lblFotoPreview.setPreferredSize(new Dimension(125, 78));
+        lblFotoPreview.setBorder(BorderFactory.createLineBorder(COLOR_BORDE));
+
+        btnSubirFoto = new BotonRacing(
+                "Subir foto",
+                COLOR_ELIMINAR,
+                COLOR_ELIMINAR_HOVER
+        );
+        configurarBoton(btnSubirFoto);
+        btnSubirFoto.setPreferredSize(new Dimension(150, 42));
+
+        btnSubirFoto.addActionListener(e -> seleccionarFoto());
+
+        JPanel info = new JPanel(new GridBagLayout());
+        info.setOpaque(false);
+        GridBagConstraints c = new GridBagConstraints();
+        c.gridx = 0;
+        c.gridy = 0;
+        c.anchor = GridBagConstraints.WEST;
+        c.insets = new Insets(0, 0, 6, 0);
+        info.add(btnSubirFoto, c);
+
+        JLabel ayuda = new JLabel("JPG, JPEG o PNG · Máx. recomendado: 5 MB");
+        ayuda.setFont(new Font("Arial", Font.PLAIN, 10));
+        ayuda.setForeground(COLOR_GRIS);
+        c.gridy = 1;
+        info.add(ayuda, c);
+
+        panel.add(lblFotoPreview, BorderLayout.WEST);
+        panel.add(info, BorderLayout.CENTER);
+
+        return panel;
+    }
+
+    private void seleccionarFoto() {
+
+        JFileChooser selector = new JFileChooser();
+        selector.setDialogTitle("Seleccionar foto del vehículo");
+        selector.setFileFilter(new FileNameExtensionFilter(
+                "Imágenes JPG, JPEG y PNG",
+                "jpg", "jpeg", "png"
+        ));
+        selector.setAcceptAllFileFilterUsed(false);
+
+        int resultado = selector.showOpenDialog(this);
+
+        if (resultado != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        File archivo = selector.getSelectedFile();
+        String placa = getPlaca();
+
+        if (placa.isEmpty()) {
+            javax.swing.JOptionPane.showMessageDialog(
+                    this,
+                    "Primero ingresa la placa del vehículo.",
+                    "Placa requerida",
+                    javax.swing.JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        String nombre = archivo.getName();
+        int punto = nombre.lastIndexOf('.');
+        String extension = punto >= 0
+                ? nombre.substring(punto).toLowerCase(Locale.ROOT)
+                : ".jpg";
+
+        try {
+
+            Path carpeta = Path.of("images", "vehiculos");
+            Files.createDirectories(carpeta);
+
+            Path destino = carpeta.resolve(placa + extension);
+
+            // Si ya había otra extensión para esta placa, la eliminamos.
+            String[] extensiones = {".jpg", ".jpeg", ".png"};
+            for (String ext : extensiones) {
+                Path anterior = carpeta.resolve(placa + ext);
+                if (!anterior.equals(destino)) {
+                    Files.deleteIfExists(anterior);
+                }
+            }
+
+            Files.copy(
+                    archivo.toPath(),
+                    destino,
+                    StandardCopyOption.REPLACE_EXISTING
+            );
+
+            rutaFotoSeleccionada = destino.toString().replace('\\', '/');
+            mostrarVistaPrevia(archivo);
+
+        } catch (IOException ex) {
+
+            javax.swing.JOptionPane.showMessageDialog(
+                    this,
+                    "No se pudo guardar la foto: " + ex.getMessage(),
+                    "Error",
+                    javax.swing.JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
+    private void mostrarVistaPrevia(File archivo) {
+
+        try {
+
+            BufferedImage imagen = ImageIO.read(archivo);
+
+            if (imagen == null) {
+                throw new IOException("El archivo no es una imagen válida.");
+            }
+
+            int ancho = 125;
+            int alto = 78;
+
+            double escala = Math.min(
+                    (double) ancho / imagen.getWidth(),
+                    (double) alto / imagen.getHeight()
+            );
+
+            int nuevoAncho = Math.max(1, (int) (imagen.getWidth() * escala));
+            int nuevoAlto = Math.max(1, (int) (imagen.getHeight() * escala));
+
+            ImageIcon icono = new ImageIcon(
+                    imagen.getScaledInstance(
+                            nuevoAncho,
+                            nuevoAlto,
+                            java.awt.Image.SCALE_SMOOTH
+                    )
+            );
+
+            lblFotoPreview.setText("");
+            lblFotoPreview.setIcon(icono);
+
+        } catch (IOException ex) {
+
+            lblFotoPreview.setIcon(null);
+            lblFotoPreview.setText("SIN FOTO");
+        }
+    }
 
     // ============================================================
     // FUENTES
@@ -501,6 +672,31 @@ public class VehiculoView extends JFrame {
         );
 
         // ========================================================
+        // FOTO DEL VEHÍCULO
+        // ========================================================
+
+        gbc.gridy = 10;
+        gbc.gridwidth = 1;
+        gbc.insets = new Insets(10, 5, 5, 5);
+
+        panelFormulario.add(
+                crearEtiqueta("Foto del vehículo"),
+                gbc
+        );
+
+        JPanel panelFoto = crearPanelFoto();
+
+        gbc.gridy = 11;
+        gbc.gridwidth = 2;
+        gbc.insets = new Insets(5, 5, 8, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        panelFormulario.add(
+                panelFoto,
+                gbc
+        );
+
+        // ========================================================
         // BOTÓN GUARDAR
         // ========================================================
 
@@ -515,11 +711,11 @@ public class VehiculoView extends JFrame {
                 btnGuardar
         );
 
-        gbc.gridy = 10;
+        gbc.gridy = 12;
 
         gbc.insets =
                 new Insets(
-                        20,
+                        12,
                         5,
                         8,
                         5
@@ -545,7 +741,7 @@ public class VehiculoView extends JFrame {
                 btnEliminar
         );
 
-        gbc.gridy = 11;
+        gbc.gridy = 13;
 
         gbc.insets =
                 new Insets(
@@ -562,7 +758,7 @@ public class VehiculoView extends JFrame {
 
         // ESPACIO
 
-        gbc.gridy = 12;
+        gbc.gridy = 14;
         gbc.weighty = 1;
         gbc.fill =
                 GridBagConstraints.BOTH;
@@ -3017,6 +3213,18 @@ public class VehiculoView extends JFrame {
         }
     }
 
+    public String getFoto() {
+
+        return rutaFotoSeleccionada == null
+                ? ""
+                : rutaFotoSeleccionada;
+    }
+
+    public JButton getBtnSubirFoto() {
+
+        return btnSubirFoto;
+    }
+
     public JButton getBtnGuardar() {
 
         return btnGuardar;
@@ -3063,6 +3271,13 @@ public class VehiculoView extends JFrame {
         txtModelo.setText("");
 
         txtPrecio.setText("");
+
+        rutaFotoSeleccionada = "";
+
+        if (lblFotoPreview != null) {
+            lblFotoPreview.setIcon(null);
+            lblFotoPreview.setText("SIN FOTO");
+        }
 
         txtPlaca.requestFocus();
     }
