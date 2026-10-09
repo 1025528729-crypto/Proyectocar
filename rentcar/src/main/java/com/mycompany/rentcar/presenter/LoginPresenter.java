@@ -30,8 +30,7 @@ public class LoginPresenter {
         Usuario usuario = usuarioDAO.autenticar(user, pass);
 
         if (usuario != null) {
-            view.mostrarMensaje("¡Bienvenido " + usuario.getUsername() + "! Rol: " + usuario.getRol());
-            view.dispose(); // Cierra ventana de login
+            view.dispose(); // Cierra ventana de login sin mostrar mensaje emergente
             
             VehiculoView vehiculoView = new VehiculoView();
             new VehiculoPresenter(vehiculoView, usuario);

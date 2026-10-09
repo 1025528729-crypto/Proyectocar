@@ -32,14 +32,15 @@ public class LoginView extends JFrame {
         cargarFuentes();
 
         setTitle("RentCar - Acceso al Sistema");
-        setSize(560, 720);
-        setMinimumSize(new Dimension(500, 650));
+        setSize(560, 800);
+        setMinimumSize(new Dimension(500, 740));
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
         getContentPane().setBackground(FONDO);
 
         construirInterfaz();
+        VentanaRentCar.instalar(this);
 
         getRootPane().setDefaultButton(btnIngresar);
     }
@@ -91,7 +92,7 @@ public class LoginView extends JFrame {
         tarjeta.setBackground(TARJETA);
         tarjeta.setBorder(new RoundedBorder(BORDE, 1, 28));
 
-        Dimension tamañoTarjeta = new Dimension(430, 590);
+        Dimension tamañoTarjeta = new Dimension(430, 660);
         tarjeta.setPreferredSize(tamañoTarjeta);
         tarjeta.setMinimumSize(tamañoTarjeta);
         tarjeta.setMaximumSize(tamañoTarjeta);
@@ -178,10 +179,10 @@ public class LoginView extends JFrame {
 
             Image imagen = icono.getImage();
 
-            int ancho = 190;
+            int ancho = 200;
             int alto = (imagen.getHeight(null) > 0)
-                    ? (int) ((double) imagen.getHeight(null) / imagen.getWidth(null) * ancho)
-                    : 80;
+                    ? (int) Math.round((double) imagen.getHeight(null) / imagen.getWidth(null) * ancho)
+                    : 130;
 
             imagen = imagen.getScaledInstance(
                     ancho,
@@ -199,6 +200,9 @@ public class LoginView extends JFrame {
 
         logo.setHorizontalAlignment(SwingConstants.CENTER);
         logo.setAlignmentX(Component.CENTER_ALIGNMENT);
+        logo.setPreferredSize(new Dimension(200, 130));
+        logo.setMinimumSize(new Dimension(200, 130));
+        logo.setMaximumSize(new Dimension(200, 130));
 
         return logo;
     }

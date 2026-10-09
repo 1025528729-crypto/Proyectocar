@@ -41,6 +41,7 @@ public class RegistroView extends JFrame {
         getContentPane().setBackground(FONDO);
 
         construirInterfaz();
+        VentanaRentCar.instalar(this);
 
         getRootPane().setDefaultButton(btnRegistrar);
     }
@@ -264,7 +265,7 @@ public class RegistroView extends JFrame {
             Image imagen =
                     icono.getImage();
 
-            int ancho = 185;
+            int ancho = 200;
 
             int alto =
                     imagen.getHeight(null) > 0
