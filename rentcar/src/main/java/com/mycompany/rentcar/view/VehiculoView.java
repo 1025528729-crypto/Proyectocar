@@ -5,7 +5,6 @@ import javax.swing.DefaultListCellRenderer;
 import javax.swing.JButton;
 import javax.swing.ImageIcon;
 import javax.swing.JComboBox;
-import javax.swing.DefaultComboBoxModel;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -719,18 +718,6 @@ public class VehiculoView extends JFrame {
         comboCiudad.setPreferredSize(new Dimension(190, 36));
         comboTipo.addActionListener(e -> {
             boolean moto = "MOTO".equalsIgnoreCase(getTipo());
-            String marcaActual = getMarca();
-            comboMarca.setModel(new DefaultComboBoxModel<>(moto ? MARCAS_MOTOS : MARCAS_AUTOS));
-            if (marcaActual != null && !marcaActual.isBlank()) {
-                for (int i = 0; i < comboMarca.getItemCount(); i++) {
-                    if (comboMarca.getItemAt(i).equalsIgnoreCase(marcaActual)) {
-                        comboMarca.setSelectedIndex(i);
-                        break;
-                    }
-                }
-            }
-            if (comboMarca.getSelectedIndex() == 0) comboMarca.setSelectedIndex(-1);
-            if (logoMarca != null) logoMarca.setMarca(getMarca());
             txtCapacidad.setText("");
             if (moto) {
                 txtPuertas.setText("0");
@@ -739,6 +726,7 @@ public class VehiculoView extends JFrame {
                 txtPuertas.setText("");
                 txtPuertas.setEnabled(true);
             }
+            actualizarMarcasPorTipo();
         });
 
         JPanel seccionIdentificacion = crearSeccionFormulario("01  ·  IDENTIFICACIÓN");
@@ -1557,6 +1545,70 @@ public class VehiculoView extends JFrame {
     // FOTO EN TABLA
     // ============================================================
 
+    // ============================================================
+    // MINIATURAS EN CACHÉ (tabla de vehículos)
+    // ============================================================
+
+    private final Map<String, ImageIcon> cacheMiniaturas = new HashMap<>();
+
+    private ImageIcon obtenerMiniatura(File archivo, int maxAncho, int maxAlto) {
+
+        String clave = archivo.getAbsolutePath()
+                + "|" + archivo.lastModified()
+                + "|" + archivo.length();
+
+        if (cacheMiniaturas.containsKey(clave)) {
+            return cacheMiniaturas.get(clave);
+        }
+
+        ImageIcon icono = null;
+
+        try (javax.imageio.stream.ImageInputStream in = ImageIO.createImageInputStream(archivo)) {
+
+            java.util.Iterator<javax.imageio.ImageReader> lectores = ImageIO.getImageReaders(in);
+
+            if (lectores.hasNext()) {
+
+                javax.imageio.ImageReader lector = lectores.next();
+
+                try {
+                    lector.setInput(in, true, true);
+
+                    int w = lector.getWidth(0);
+                    int h = lector.getHeight(0);
+
+                    // Se lee solo una fracción de los píxeles: mucho más rápido con fotos grandes
+                    javax.imageio.ImageReadParam parametros = lector.getDefaultReadParam();
+                    int paso = Math.max(1, Math.min(w / (maxAncho * 2), h / (maxAlto * 2)));
+                    parametros.setSourceSubsampling(paso, paso, 0, 0);
+
+                    BufferedImage imagen = lector.read(0, parametros);
+
+                    if (imagen != null) {
+
+                        double escala = Math.min(
+                                (double) maxAncho / imagen.getWidth(),
+                                (double) maxAlto / imagen.getHeight());
+
+                        int nuevoAncho = Math.max(1, (int) (imagen.getWidth() * escala));
+                        int nuevoAlto = Math.max(1, (int) (imagen.getHeight() * escala));
+
+                        icono = new ImageIcon(escalarImagen(imagen, nuevoAncho, nuevoAlto));
+                    }
+
+                } finally {
+                    lector.dispose();
+                }
+            }
+
+        } catch (Exception e) {
+            icono = null;
+        }
+
+        cacheMiniaturas.put(clave, icono);
+        return icono;
+    }
+
     private class FotoCeldaRenderer
             extends DefaultTableCellRenderer {
 
@@ -1617,59 +1669,15 @@ public class VehiculoView extends JFrame {
 
                     try {
 
-                        BufferedImage imagen =
-                                ImageIO.read(
-                                        archivo
-                                );
+                        // Miniatura en caché: no se vuelve a leer ni a escalar la foto
+                        // en cada repintado de la tabla.
+                        ImageIcon icono = obtenerMiniatura(archivo, 112, 88);
 
-                        if (imagen != null) {
+                        if (icono != null) {
 
-                            int maxAncho = 112;
-                            int maxAlto = 88;
-
-                            double escala =
-                                    Math.min(
-                                            (double) maxAncho
-                                                    / imagen.getWidth(),
-                                            (double) maxAlto
-                                                    / imagen.getHeight()
-                                    );
-
-                            int nuevoAncho =
-                                    Math.max(
-                                            1,
-                                            (int) (
-                                                    imagen.getWidth()
-                                                    * escala
-                                            )
-                                    );
-
-                            int nuevoAlto =
-                                    Math.max(
-                                            1,
-                                            (int) (
-                                                    imagen.getHeight()
-                                                    * escala
-                                            )
-                                    );
-
-                            ImageIcon icono =
-                                    new ImageIcon(
-                                            imagen.getScaledInstance(
-                                                    nuevoAncho,
-                                                    nuevoAlto,
-                                                    java.awt.Image.SCALE_SMOOTH
-                                            )
-                                    );
-
-                            label.setIcon(
-                                    icono
-                            );
-
+                            label.setIcon(icono);
                             label.setText("");
-
                             fotoCargada = true;
-
                         }
 
                     } catch (Exception e) {
@@ -1753,11 +1761,14 @@ public class VehiculoView extends JFrame {
             return null;
         }
 
-        String clave = marca.trim().toLowerCase(java.util.Locale.ROOT);
-        String archivoMarca = clave.replace(" ", "-");
-        if (clave.equals("royal enfield")) archivoMarca = "royalenfield";
-        if (clave.equals("bmw motorrad")) archivoMarca = "bmw motorroad";
-        if (clave.equals("honda")) archivoMarca = "hondamoto";
+        String clave =
+                marca
+                        .trim()
+                        .toLowerCase()
+                        .replace(
+                                " ",
+                                "-"
+                        );
 
         if (logosMarca.containsKey(clave)) {
 
@@ -1777,7 +1788,7 @@ public class VehiculoView extends JFrame {
             logo =
                     leerLogoMarca(
                             "/images/marcas/"
-                            + archivoMarca
+                            + clave
                             + "."
                             + ext
                     );
@@ -2429,24 +2440,77 @@ public class VehiculoView extends JFrame {
     // MARCAS
     // ============================================================
 
-    private static final String[] MARCAS_AUTOS = {
-            "Selecciona una marca...",
-            "Chevrolet", "Renault", "Mazda", "Kia", "Toyota", "Nissan",
-            "Ford", "Hyundai", "Volkswagen", "Suzuki", "Honda", "BMW",
-            "Mercedes-Benz", "Audi", "Peugeot", "Jeep", "Fiat", "Chery",
-            "BYD", "Otra"
-    };
+    /** Actualiza las marcas disponibles según el tipo de vehículo seleccionado. */
+    private void actualizarMarcasPorTipo() {
+        if (comboMarca == null || comboTipo == null) {
+            return;
+        }
 
-    private static final String[] MARCAS_MOTOS = {
-            "Selecciona una marca...",
-            "Yamaha", "TVS", "Royal Enfield", "Kymco", "KTM", "Kawasaki",
-            "Honda", "Hero", "Harley-Davidson", "Ducati", "CFMoto",
-            "BMW Motorrad", "Benelli", "Bajaj", "Auteco", "AKT"
-    };
+        Object seleccionAnterior = comboMarca.getSelectedItem();
+        boolean moto = "MOTO".equalsIgnoreCase(getTipo());
+        String[] marcasMoto = {
+            "Selecciona una marca...", "AKT", "Auteco", "Bajaj", "Benelli",
+            "BMW Motorrad", "CFMoto", "Ducati", "Hero", "Honda", "Husqvarna",
+            "Kawasaki", "KTM", "Kymco", "Royal Enfield", "Suzuki", "SYM",
+            "TVS", "Triumph", "Victory", "Yamaha", "Otra"
+        };
+        String[] marcasAuto = {
+            "Selecciona una marca...", "Audi", "BMW", "BYD", "Chery",
+            "Chevrolet", "Citroën", "Fiat", "Ford", "Honda", "Hyundai",
+            "Jeep", "Kia", "Mazda", "Mercedes-Benz", "Mitsubishi", "Nissan",
+            "Peugeot", "Renault", "Subaru", "Suzuki", "Tesla", "Toyota",
+            "Volkswagen", "Volvo", "Otra"
+        };
+        String[] marcas = moto ? marcasMoto : marcasAuto;
+
+        comboMarca.removeAllItems();
+        for (String marca : marcas) {
+            comboMarca.addItem(marca);
+        }
+
+        if (seleccionAnterior != null) {
+            for (String marca : marcas) {
+                if (marca.equalsIgnoreCase(seleccionAnterior.toString())) {
+                    comboMarca.setSelectedItem(marca);
+                    break;
+                }
+            }
+        }
+        if (comboMarca.getSelectedIndex() < 0) {
+            comboMarca.setSelectedIndex(0);
+        }
+        if (logoMarca != null) {
+            logoMarca.setMarca(getMarca());
+        }
+    }
 
     private JComboBox<String> crearComboMarca() {
 
-        String[] marcas = MARCAS_AUTOS;
+        String[] marcas = {
+
+                "Selecciona una marca...",
+
+                "Chevrolet",
+                "Renault",
+                "Mazda",
+                "Kia",
+                "Toyota",
+                "Nissan",
+                "Ford",
+                "Hyundai",
+                "Volkswagen",
+                "Suzuki",
+                "Honda",
+                "BMW",
+                "Mercedes-Benz",
+                "Audi",
+                "Peugeot",
+                "Jeep",
+                "Fiat",
+                "Chery",
+                "BYD",
+                "Otra"
+        };
 
         JComboBox<String> combo =
                 new JComboBox<>(
@@ -3836,10 +3900,11 @@ public class VehiculoView extends JFrame {
     public void cargarVehiculoEnFormulario(Vehiculo v) {
         if (v == null) return;
         txtPlaca.setText(v.getPlaca());
+        // Primero seleccionar el tipo para cargar la lista de marcas correspondiente.
+        comboTipo.setSelectedItem(v.getTipo());
         comboMarca.setSelectedItem(v.getMarca());
         txtModelo.setText(v.getModelo());
         txtPrecio.setText(String.valueOf(v.getPrecioPorDia()));
-        comboTipo.setSelectedItem(v.getTipo());
         txtAnio.setText(v.getAnio() > 0 ? String.valueOf(v.getAnio()) : "");
         txtColor.setText(v.getColor());
         comboTransmision.setSelectedItem(v.getTransmision().isBlank() ? "No especificada" : v.getTransmision());
@@ -3919,6 +3984,8 @@ public class VehiculoView extends JFrame {
         setModoEdicion(false);
         txtPlaca.setText("");
 
+        comboTipo.setSelectedItem("AUTO");
+        actualizarMarcasPorTipo();
         comboMarca.setSelectedIndex(0);
 
         txtModelo.setText("");
