@@ -24,14 +24,18 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.List;
 
+// [ABSTRACCIÓN Y MVP]: Esta clase actúa como el Presentador en el patrón MVP. 
+// Aísla la lógica de negocio y la comunicación entre la vista (VehiculoView) y la base de datos (VehiculoDAO).
 public class VehiculoPresenter {
 
+    // [ENCAPSULAMIENTO]: Atributos privados para proteger la instancia de la vista, 
+    // el modelo DAO, la sesión del usuario y el estado de edición.
     private VehiculoView view;
     private VehiculoDAO dao;
     private Usuario usuarioLogueado;
     private String placaEditando = null;
 
-    // Constructor normal
+    // [POLIMORFISMO DE SOBRECARGA / OVERLOADING]: Constructor 1 que inicializa el presentador por defecto.
     public VehiculoPresenter(VehiculoView view) {
         this.view = view;
         this.dao = new VehiculoDAO();
@@ -39,7 +43,7 @@ public class VehiculoPresenter {
         initPresenter();
     }
 
-    // Constructor con usuario
+    // [POLIMORFISMO DE SOBRECARGA / OVERLOADING]: Constructor 2 que recibe la sesión de un usuario para gestionar permisos.
     public VehiculoPresenter(VehiculoView view, Usuario usuario) {
         this.view = view;
         this.dao = new VehiculoDAO();
@@ -53,6 +57,7 @@ public class VehiculoPresenter {
     // INICIALIZAR PRESENTER
     // =========================================================
 
+    // [ABSTRACCIÓN]: Configura los Listeners de la vista sin exponer los detalles de implementación interna.
     private void initPresenter() {
 
         view.getBtnGuardar().addActionListener(e -> registrarVehiculo());
@@ -68,6 +73,7 @@ public class VehiculoPresenter {
 
     private void registrarVehiculo() {
 
+        // [ENCAPSULAMIENTO]: Acceso a los datos del formulario de la vista mediante métodos Getters.
         String placa = view.getPlaca();
         String marca = view.getMarca();
         String modelo = view.getModelo();
@@ -124,7 +130,7 @@ public class VehiculoPresenter {
             return;
         }
 
-        // Al registrar, la placa debe ser nueva. En modo edición se conserva la placa seleccionada.
+        // [ABSTRACCIÓN]: Llama al DAO para verificar la existencia del vehículo sin conocer la consulta SQL subyacente.
         Vehiculo existente = dao.buscarPorPlaca(placa);
 
         if (placaEditando == null && existente != null) {
@@ -137,7 +143,7 @@ public class VehiculoPresenter {
             return;
         }
 
-        // Crear vehículo
+        // [ENCAPSULAMIENTO]: Instanciación del modelo Vehiculo y asignación de atributos mediante Setters.
         Vehiculo vehiculo = new Vehiculo();
 
         vehiculo.setPlaca(placa);
@@ -166,7 +172,7 @@ public class VehiculoPresenter {
             return;
         }
 
-        // Insertar o actualizar el vehículo en la base de datos.
+        // [ABSTRACCIÓN Y ENCAPSULAMIENTO]: Inserta o actualiza en la base de datos de manera transparente.
         boolean editando = placaEditando != null;
         boolean registrado = editando ? dao.actualizar(vehiculo) : dao.insertar(vehiculo);
 
@@ -192,6 +198,7 @@ public class VehiculoPresenter {
     }
 
     /** Ventana de validación personalizada con el estilo oscuro/rojo de RentCar. */
+    // [ABSTRACCIÓN]: Aísla la construcción e inicialización del diálogo gráfico de alerta.
     private void mostrarCamposIncompletos(String camposFaltantes) {
         final Color fondo = new Color(13, 15, 19);
         final Color panel = new Color(23, 26, 32);
@@ -269,6 +276,9 @@ public class VehiculoPresenter {
         entendido.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         entendido.setPreferredSize(new Dimension(125, 39));
         entendido.addActionListener(e -> dialogo.dispose());
+
+        // [HERENCIA Y POLIMORFISMO DE SOBRESCRITURA / OVERRIDING]:
+        // Se crea una subclase anónima de MouseAdapter redefiniendo los eventos visuales del botón.
         entendido.addMouseListener(new MouseAdapter() {
             @Override public void mouseEntered(MouseEvent e) { entendido.setBackground(new Color(255, 42, 35)); }
             @Override public void mouseExited(MouseEvent e) { entendido.setBackground(rojo); }
@@ -312,12 +322,14 @@ public class VehiculoPresenter {
 
         try {
 
+            // [ABSTRACCIÓN]: Obtiene la lista de vehículos desde la base de datos sin acoplar la consulta SQL a la interfaz.
             List<Vehiculo> vehiculos = dao.listar();
 
             view.getModeloTabla().setRowCount(0);
 
             for (Vehiculo vehiculo : vehiculos) {
 
+                // [ENCAPSULAMIENTO]: Lectura de las propiedades del objeto Vehiculo mediante sus Getters.
                 view.getModeloTabla().addRow(
                         new Object[]{
                             vehiculo.getFoto(),          // FOTO
@@ -373,7 +385,7 @@ public class VehiculoPresenter {
             return;
         }
 
-        // Eliminar de la base de datos
+        // [ABSTRACCIÓN]: Ejecuta la eliminación en cascada desde la base de datos delegando la tarea al DAO.
         boolean eliminado = dao.eliminar(placa);
 
         if (eliminado) {
@@ -436,6 +448,8 @@ public class VehiculoPresenter {
         cerrar.setFont(new Font("SansSerif", Font.BOLD, 24));
         cerrar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         cerrar.setPreferredSize(new Dimension(28, 25));
+
+        // [HERENCIA Y POLIMORFISMO DE SOBRESCRITURA / OVERRIDING]: Sobrescribe eventos de escucha del ratón.
         cerrar.addMouseListener(new MouseAdapter() {
             @Override public void mouseClicked(MouseEvent e) { dialogo.dispose(); }
             @Override public void mouseEntered(MouseEvent e) { cerrar.setForeground(new Color(255, 220, 220)); }
@@ -504,6 +518,8 @@ public class VehiculoPresenter {
         boton.setBorderPainted(false);
         boton.setBorder(BorderFactory.createEmptyBorder(11, 17, 11, 17));
         boton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        
+        // [HERENCIA Y POLIMORFISMO DE SOBRESCRITURA / OVERRIDING]: Sobrescribe eventos de hover para el botón.
         boton.addMouseListener(new MouseAdapter() {
             @Override public void mouseEntered(MouseEvent e) { boton.setBackground(hover); }
             @Override public void mouseExited(MouseEvent e) { boton.setBackground(normal); }
@@ -519,6 +535,7 @@ public class VehiculoPresenter {
 
         if (usuarioLogueado != null) {
 
+            // [ENCAPSULAMIENTO]: Consulta el estado o rol del usuario mediante el método esAdmin().
             if (usuarioLogueado.esAdmin()) {
 
                 System.out.println(
