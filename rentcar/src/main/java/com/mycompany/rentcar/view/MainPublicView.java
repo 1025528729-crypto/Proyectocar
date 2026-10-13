@@ -70,7 +70,7 @@ public class MainPublicView extends JFrame {
     private JCheckBox chkDeportiva, chkScooter, chkNaked, chkTouring, chkEnduro, chkTrabajo, chkOtra;
     private JCheckBox chkManual, chkAutomatica, chkSemiautomatica;
     private final Set<String> favoritos = new HashSet<>();
-    private final List<String> reservasSesion = new ArrayList<>();
+    private final List<ReservaSesion> reservasSesion = new ArrayList<>();
     private boolean mostrarSoloFavoritos = false;
 
     // =========================================================
@@ -246,10 +246,7 @@ public class MainPublicView extends JFrame {
                 if (texto.equals("Ayuda")) {
                     mostrarAyuda();
                 } else if (texto.equals("Mis reservas")) {
-                    String contenido = reservasSesion.isEmpty()
-                            ? "Todavía no has solicitado reservas en esta sesión."
-                            : String.join("\n\n", reservasSesion);
-                    JOptionPane.showMessageDialog(MainPublicView.this, contenido, "Mis reservas", JOptionPane.INFORMATION_MESSAGE);
+                    mostrarMisReservas();
                 } else if (texto.equals("Vehículos")) {
                     mostrarSoloFavoritos = false;
                     actualizarTarjetas();
@@ -929,15 +926,18 @@ public class MainPublicView extends JFrame {
         private Calendar calendario;
         private JLabel lblMes;
         private JPanel panelDias;
+        private final Date seleccionInicial;
 
         private final SimpleDateFormat formatoMes
                 = new SimpleDateFormat("MMMM yyyy", new Locale("es", "CO"));
 
         CalendarioDialog(Frame parent, Date fecha, boolean esRecogida) {
             super(parent, "Seleccionar fecha", true);
+            setUndecorated(true);
+            seleccionInicial = fecha;
             calendario = Calendar.getInstance();
             calendario.setTime(fecha);
-            setSize(390, 390);
+            setSize(420, 470);
             setResizable(false);
             setLocationRelativeTo(parent);
             crearCalendario(esRecogida);
@@ -946,7 +946,7 @@ public class MainPublicView extends JFrame {
         private void crearCalendario(boolean esRecogida) {
             JPanel principal = new JPanel(new BorderLayout(0, 10));
             principal.setBackground(COLOR_PANEL);
-            principal.setBorder(new EmptyBorder(15, 15, 15, 15));
+            principal.setBorder(new EmptyBorder(20, 24, 20, 24));
 
             JPanel cabecera = new JPanel(new BorderLayout());
             cabecera.setOpaque(false);
@@ -965,14 +965,11 @@ public class MainPublicView extends JFrame {
             cabecera.add(siguiente, BorderLayout.EAST);
             principal.add(cabecera, BorderLayout.NORTH);
 
-            panelDias = new JPanel(new GridLayout(7, 7, 4, 4));
+            panelDias = new JPanel(new GridLayout(0, 7, 4, 4));
             panelDias.setOpaque(false);
             principal.add(panelDias, BorderLayout.CENTER);
 
-            JButton cancelar = new JButton("Cancelar");
-            cancelar.setForeground(COLOR_SECUNDARIO);
-            cancelar.setBackground(COLOR_CAMPO);
-            cancelar.setFocusPainted(false);
+            JButton cancelar = crearBotonSecundario("Cancelar");
             cancelar.addActionListener(e -> dispose());
             principal.add(cancelar, BorderLayout.SOUTH);
 
@@ -986,7 +983,16 @@ public class MainPublicView extends JFrame {
                 actualizarCalendario(esRecogida);
             });
 
-            setContentPane(principal);
+            JPanel raiz = new JPanel(new BorderLayout());
+            raiz.setBackground(COLOR_PANEL);
+            raiz.setBorder(BorderFactory.createLineBorder(new Color(48, 51, 58)));
+            raiz.add(crearBarraDialogo(this, "Seleccionar fecha"), BorderLayout.NORTH);
+            raiz.add(principal, BorderLayout.CENTER);
+            setContentPane(raiz);
+            getRootPane().registerKeyboardAction(
+                    e -> dispose(),
+                    KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0),
+                    JComponent.WHEN_IN_FOCUSED_WINDOW);
             actualizarCalendario(esRecogida);
         }
 
@@ -1027,10 +1033,21 @@ public class MainPublicView extends JFrame {
 
                 JButton boton = new JButton(String.valueOf(dia));
                 boton.setFocusPainted(false);
-                boton.setFont(new Font("SansSerif", Font.PLAIN, 11));
+                boton.setFont(new Font("SansSerif", Font.PLAIN, 13));
                 boton.setForeground(COLOR_TEXTO);
                 boton.setBackground(COLOR_CAMPO);
                 boton.setBorder(BorderFactory.createLineBorder(COLOR_BORDE));
+                boton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+                Calendar actual = Calendar.getInstance();
+                actual.setTime(seleccionInicial);
+                if (actual.get(Calendar.YEAR) == calendario.get(Calendar.YEAR)
+                        && actual.get(Calendar.MONTH) == calendario.get(Calendar.MONTH)
+                        && actual.get(Calendar.DAY_OF_MONTH) == dia) {
+                    boton.setBackground(COLOR_ROJO);
+                    boton.setForeground(Color.WHITE);
+                    boton.setFont(new Font("SansSerif", Font.BOLD, 13));
+                }
 
                 boton.addActionListener(e -> {
                     Calendar seleccion = (Calendar) calendario.clone();
@@ -1043,9 +1060,9 @@ public class MainPublicView extends JFrame {
                     }
 
                     if (!esRecogida && fechaRecogida != null && fecha.before(fechaRecogida)) {
-                        JOptionPane.showMessageDialog(CalendarioDialog.this,
+                        mostrarMensajePersonalizado(CalendarioDialog.this,
                                 "La devolución no puede ser anterior a la recogida.",
-                                "Fecha no válida", JOptionPane.WARNING_MESSAGE);
+                                "Fecha no válida");
                         return;
                     }
 
@@ -1256,10 +1273,19 @@ public class MainPublicView extends JFrame {
             if (e.getType() == TableModelEvent.INSERT
                     || e.getType() == TableModelEvent.DELETE
                     || e.getType() == TableModelEvent.UPDATE) {
-                SwingUtilities.invokeLater(this::actualizarTarjetas);
+                // Si llegan varios cambios seguidos (una fila por vehículo) se reconstruye una sola vez
+                if (!reconstruccionPendiente) {
+                    reconstruccionPendiente = true;
+                    SwingUtilities.invokeLater(() -> {
+                        reconstruccionPendiente = false;
+                        actualizarTarjetas();
+                    });
+                }
             }
         });
     }
+
+    private boolean reconstruccionPendiente = false;
 
     // =========================================================
     // ACTUALIZAR TARJETAS
@@ -1671,6 +1697,9 @@ public class MainPublicView extends JFrame {
     // =========================================================
     // IMAGEN DEL VEHÍCULO
     // =========================================================
+    // Fotos ya leídas y reducidas: evita decodificar la misma foto grande en cada filtro o búsqueda
+    private final java.util.Map<String, BufferedImage> cacheImagenes = new java.util.HashMap<>();
+
     private BufferedImage cargarImagenOriginal(String ruta) {
         if (ruta == null || ruta.trim().isEmpty()) {
             return null;
@@ -1678,9 +1707,17 @@ public class MainPublicView extends JFrame {
 
         try {
             File archivo = FotoVehiculoUtil.resolver(ruta);
+            String clave = archivo != null && archivo.isFile()
+                    ? archivo.getAbsolutePath() + "|" + archivo.lastModified() + "|" + archivo.length()
+                    : "recurso:" + ruta;
+
+            if (cacheImagenes.containsKey(clave)) {
+                return cacheImagenes.get(clave);
+            }
+
             BufferedImage original = null;
             if (archivo != null && archivo.isFile()) {
-                original = ImageIO.read(archivo);
+                original = leerImagenReducida(archivo, 1000);
             }
 
             // También permite imágenes guardadas dentro de resources.
@@ -1690,8 +1727,54 @@ public class MainPublicView extends JFrame {
                     original = ImageIO.read(recurso);
                 }
             }
+
+            cacheImagenes.put(clave, original);
             return original;
 
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Lee la foto saltando píxeles y la deja con máximo "lado" píxeles (rápido incluso con fotos de 12 MP). */
+    private BufferedImage leerImagenReducida(File archivo, int lado) {
+        try (javax.imageio.stream.ImageInputStream in = ImageIO.createImageInputStream(archivo)) {
+            java.util.Iterator<javax.imageio.ImageReader> lectores = ImageIO.getImageReaders(in);
+            if (!lectores.hasNext()) {
+                return null;
+            }
+            javax.imageio.ImageReader lector = lectores.next();
+            try {
+                lector.setInput(in, true, true);
+                int w = lector.getWidth(0);
+                int h = lector.getHeight(0);
+
+                javax.imageio.ImageReadParam parametros = lector.getDefaultReadParam();
+                int paso = Math.max(1, Math.max(w, h) / lado);
+                parametros.setSourceSubsampling(paso, paso, 0, 0);
+                BufferedImage leida = lector.read(0, parametros);
+                if (leida == null) {
+                    return null;
+                }
+
+                int mayor = Math.max(leida.getWidth(), leida.getHeight());
+                if (mayor <= lado) {
+                    return leida;
+                }
+
+                double escala = (double) lado / mayor;
+                int nw = Math.max(1, (int) Math.round(leida.getWidth() * escala));
+                int nh = Math.max(1, (int) Math.round(leida.getHeight() * escala));
+                BufferedImage reducida = new BufferedImage(nw, nh, BufferedImage.TYPE_INT_RGB);
+                Graphics2D g2 = reducida.createGraphics();
+                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                g2.drawImage(leida, 0, 0, nw, nh, null);
+                g2.dispose();
+                return reducida;
+            } finally {
+                lector.dispose();
+            }
         } catch (Exception e) {
             return null;
         }
@@ -1829,9 +1912,9 @@ public class MainPublicView extends JFrame {
     // =========================================================
     private void realizarBusqueda(ActionEvent e) {
         if (fechaDevolucion.before(fechaRecogida)) {
-            JOptionPane.showMessageDialog(this,
+            mostrarMensajePersonalizado(
                     "La fecha de devolución debe ser posterior a la fecha de recogida.",
-                    "Fechas no válidas", JOptionPane.WARNING_MESSAGE);
+                    "Fechas no válidas");
             return;
         }
 
@@ -1844,16 +1927,7 @@ public class MainPublicView extends JFrame {
         int minimo = sliderPrecio.getMinimumValue();
         int maximo = sliderPrecio.getMaximumValue();
 
-        String mensaje = "<html>"
-                + "<b>Búsqueda realizada</b><br><br>"
-                + "📍 Lugar: " + lugar + "<br>"
-                + "📅 Recogida: " + formatearFecha(fechaRecogida) + "<br>"
-                + "📅 Devolución: " + formatearFecha(fechaDevolucion) + "<br>"
-                + "🚗 Marca: " + marca + "<br>"
-                + "💰 Precio: " + formatearPrecio(minimo) + " - " + formatearPrecio(maximo)
-                + "</html>";
-
-        JOptionPane.showMessageDialog(this, mensaje, "RentCar", JOptionPane.INFORMATION_MESSAGE);
+        mostrarResumenBusqueda(lugar, marca, minimo, maximo);
         actualizarTarjetas();
     }
 
@@ -1861,79 +1935,323 @@ public class MainPublicView extends JFrame {
     // DETALLES
     // =========================================================
     private void mostrarDetalles(String marca, String modelo, String placa, Object precio, int filaModelo) {
-        String tipo = valorFila(filaModelo, 5, "AUTO");
-        String tituloTipo = tipo.equalsIgnoreCase("MOTO") ? "Motocicleta" : "Automóvil";
 
-        // Construimos el texto plano con saltos de línea limpios
-        String contenido = tituloTipo.toUpperCase() + ": " + marca.toUpperCase() + " " + modelo.toUpperCase() + "\n\n"
-                + "Placa: " + placa + "\n"
-                + "Precio: " + formatearPrecio(precio) + " / día\n"
-                + "Año: " + valorFila(filaModelo, 6, "No especificado") + "\n"
-                + "Color: " + valorFila(filaModelo, 7, "No especificado") + "\n"
-                + "Transmisión: " + valorFila(filaModelo, 8, "No especificada") + "\n"
-                + "Combustible: " + valorFila(filaModelo, 9, "No especificado") + "\n"
-                + "Capacidad: " + valorFila(filaModelo, 10, tipo.equalsIgnoreCase("MOTO") ? "2" : "5") + " personas\n"
-                + "Puertas: " + (tipo.equalsIgnoreCase("MOTO") ? "No aplica" : valorFila(filaModelo, 16, "4")) + "\n"
-                + "Kilometraje: " + valorFila(filaModelo, 11, "No especificado") + " km\n"
-                + "Categoría: " + valorFila(filaModelo, 12, "No especificada") + "\n"
-                + "Ciudad: " + valorFila(filaModelo, 14, "No especificada") + "\n"
-                + "Disponibilidad: " + (Boolean.parseBoolean(valorFila(filaModelo, 15, "true")) ? "Disponible" : "No disponible") + "\n\n"
-                + "Descripción: " + valorFila(filaModelo, 13, "Sin descripción");
-
-        // Diálogo personalizado con el diseño oscuro de la app
         JDialog dialog = new JDialog(this, "Detalles del vehículo", true);
-        dialog.setSize(480, 560);
-        dialog.setLocationRelativeTo(this);
+        dialog.setUndecorated(true);
         dialog.setResizable(false);
 
-        JPanel panelPrincipal = new JPanel(new BorderLayout(0, 15));
-        panelPrincipal.setBackground(COLOR_PANEL);
-        panelPrincipal.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(COLOR_BORDE, 1),
-                BorderFactory.createEmptyBorder(20, 24, 20, 24)
-        ));
+        dialog.setContentPane(construirPanelDetalles(dialog, marca, modelo, placa, precio, filaModelo));
+        dialog.setSize(940, 620);
+        dialog.setLocationRelativeTo(this);
 
-        JLabel lblTitulo = new JLabel("Información del Vehículo");
-        lblTitulo.setForeground(COLOR_TEXTO);
-        lblTitulo.setFont(new Font("SansSerif", Font.BOLD, 16));
-        panelPrincipal.add(lblTitulo, BorderLayout.NORTH);
+        // ESC cierra la ventana
+        dialog.getRootPane().registerKeyboardAction(
+                e -> dialog.dispose(),
+                KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0),
+                JComponent.WHEN_IN_FOCUSED_WINDOW);
 
-        // Usamos JTextPane con los colores exactos de los campos del catálogo (COLOR_CAMPO y COLOR_TEXTO)
-        JTextPane txtInfo = new JTextPane();
-        txtInfo.setText(contenido);
-        txtInfo.setEditable(false);
-        txtInfo.setBackground(COLOR_CAMPO);
-        txtInfo.setForeground(COLOR_TEXTO); // Forzamos el color blanco/claro del texto del catálogo
-        txtInfo.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        txtInfo.setFocusable(false);
-        txtInfo.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        dialog.setVisible(true);
+    }
 
-        JScrollPane scrollInfo = new JScrollPane(txtInfo);
-        scrollInfo.setBorder(BorderFactory.createLineBorder(COLOR_BORDE));
-        scrollInfo.getViewport().setBackground(COLOR_CAMPO);
+    /**
+     * Contenido completo de la ventana de detalles: barra superior con el
+     * mismo diseño de las demás ventanas, foto del vehículo y su ficha.
+     */
+    private JPanel construirPanelDetalles(JDialog dialog, String marca, String modelo,
+            String placa, Object precio, int filaModelo) {
 
-        // Aplicamos exactamente la misma barra de desplazamiento estilizada de tu catálogo
-        estilizarBarraDesplazamiento(scrollInfo);
-        panelPrincipal.add(scrollInfo, BorderLayout.CENTER);
+        boolean moto = valorFila(filaModelo, 5, "AUTO").equalsIgnoreCase("MOTO");
+        boolean disponible = Boolean.parseBoolean(valorFila(filaModelo, 15, "true"));
 
-        JPanel panelBoton = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
-        panelBoton.setOpaque(false);
+        JPanel raiz = new JPanel(new BorderLayout());
+        raiz.setBackground(COLOR_PANEL);
+        raiz.setBorder(BorderFactory.createLineBorder(new Color(48, 51, 58)));
 
-        JButton btnCerrar = new JButton("Aceptar");
+        raiz.add(crearBarraDialogo(dialog, "Detalles del vehículo"), BorderLayout.NORTH);
+
+        JPanel cuerpo = new JPanel(new BorderLayout());
+        cuerpo.setBackground(COLOR_PANEL);
+
+        // =====================================================
+        // IZQUIERDA: FOTO + PLACA + PRECIO
+        // =====================================================
+        JPanel izquierda = new JPanel(new BorderLayout());
+        izquierda.setBackground(COLOR_CARD);
+        izquierda.setPreferredSize(new Dimension(420, 0));
+        izquierda.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, COLOR_BORDE));
+
+        JPanel panelFoto = new JPanel();
+        panelFoto.setLayout(new OverlayLayout(panelFoto));
+        panelFoto.setBackground(new Color(31, 33, 38));
+
+        // Estado encima de la foto (se agrega primero para quedar arriba)
+        JLabel estado = new JLabel(disponible ? "● Disponible" : "● No disponible");
+        estado.setOpaque(true);
+        estado.setBackground(disponible ? COLOR_VERDE : new Color(85, 38, 38));
+        estado.setForeground(new Color(185, 235, 205));
+        estado.setFont(new Font("SansSerif", Font.BOLD, 12));
+        estado.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+
+        JPanel capaEstado = new JPanel(new FlowLayout(FlowLayout.LEFT, 14, 14));
+        capaEstado.setOpaque(false);
+        capaEstado.add(estado);
+
+        JPanel capaSuperior = new JPanel(new BorderLayout());
+        capaSuperior.setOpaque(false);
+        capaSuperior.setAlignmentX(Component.CENTER_ALIGNMENT);
+        capaSuperior.setAlignmentY(Component.CENTER_ALIGNMENT);
+        capaSuperior.add(capaEstado, BorderLayout.NORTH);
+        panelFoto.add(capaSuperior);
+
+        ImagenCoverLabel imagen = new ImagenCoverLabel(cargarImagenOriginal(valorFila(filaModelo, 0, "")));
+        imagen.setAlignmentX(Component.CENTER_ALIGNMENT);
+        imagen.setAlignmentY(Component.CENTER_ALIGNMENT);
+        panelFoto.add(imagen);
+
+        izquierda.add(panelFoto, BorderLayout.CENTER);
+
+        JPanel pie = new JPanel();
+        pie.setOpaque(false);
+        pie.setLayout(new BoxLayout(pie, BoxLayout.Y_AXIS));
+        pie.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, COLOR_BORDE));
+        pie.setPreferredSize(new Dimension(0, 150));
+
+        JPanel placaPanel = crearPlacaColombiana(placa);
+        placaPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JLabel precioLabel = new JLabel(formatearPrecio(precio) + " / día");
+        precioLabel.setForeground(COLOR_TEXTO);
+        precioLabel.setFont(new Font("SansSerif", Font.BOLD, 28));
+        precioLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JLabel moneda = new JLabel("COP · precio por día");
+        moneda.setForeground(COLOR_SECUNDARIO);
+        moneda.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        moneda.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        pie.add(Box.createVerticalGlue());
+        pie.add(placaPanel);
+        pie.add(Box.createVerticalStrut(12));
+        pie.add(precioLabel);
+        pie.add(Box.createVerticalStrut(2));
+        pie.add(moneda);
+        pie.add(Box.createVerticalGlue());
+
+        izquierda.add(pie, BorderLayout.SOUTH);
+        cuerpo.add(izquierda, BorderLayout.WEST);
+
+        // =====================================================
+        // DERECHA: FICHA TÉCNICA
+        // =====================================================
+        JPanel derecha = new JPanel(new BorderLayout(0, 14));
+        derecha.setOpaque(false);
+        derecha.setBorder(BorderFactory.createEmptyBorder(24, 28, 22, 28));
+
+        JPanel superior = new JPanel();
+        superior.setOpaque(false);
+        superior.setLayout(new BoxLayout(superior, BoxLayout.Y_AXIS));
+
+        JLabel lblTipo = new JLabel(moto ? "MOTOCICLETA" : "AUTOMÓVIL");
+        lblTipo.setForeground(COLOR_ROJO_HOVER);
+        lblTipo.setFont(new Font("SansSerif", Font.BOLD, 12));
+        lblTipo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        superior.add(lblTipo);
+        superior.add(Box.createVerticalStrut(6));
+
+        JLabel lblMarca = new JLabel(marca.toUpperCase(Locale.ROOT));
+        lblMarca.setForeground(COLOR_SECUNDARIO);
+        lblMarca.setFont(new Font("SansSerif", Font.BOLD, 15));
+        lblMarca.setAlignmentX(Component.LEFT_ALIGNMENT);
+        superior.add(lblMarca);
+
+        JLabel lblModelo = new JLabel(modelo);
+        lblModelo.setForeground(COLOR_TEXTO);
+        lblModelo.setFont(new Font("SansSerif", Font.BOLD, 26));
+        lblModelo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        superior.add(lblModelo);
+        superior.add(Box.createVerticalStrut(4));
+
+        JLabel lblCiudad = new JLabel(valorFila(filaModelo, 14, "Ubicación no especificada"));
+        lblCiudad.setForeground(COLOR_SECUNDARIO);
+        lblCiudad.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        lblCiudad.setAlignmentX(Component.LEFT_ALIGNMENT);
+        superior.add(lblCiudad);
+        superior.add(Box.createVerticalStrut(16));
+
+        String km = valorFila(filaModelo, 11, "");
+        try {
+            km = NumberFormat.getNumberInstance(new Locale("es", "CO")).format(Long.parseLong(km.trim())) + " km";
+        } catch (Exception e) {
+            km = km.isEmpty() ? "No especificado" : km + " km";
+        }
+
+        JPanel ficha = new JPanel(new GridLayout(0, 2, 10, 10));
+        ficha.setOpaque(false);
+        ficha.setAlignmentX(Component.LEFT_ALIGNMENT);
+        ficha.add(crearDatoFicha("AÑO", valorFila(filaModelo, 6, "No especificado")));
+        ficha.add(crearDatoFicha("COLOR", valorFila(filaModelo, 7, "No especificado")));
+        ficha.add(crearDatoFicha("TRANSMISIÓN", valorFila(filaModelo, 8, "No especificada")));
+        ficha.add(crearDatoFicha("COMBUSTIBLE", valorFila(filaModelo, 9, "No especificado")));
+        ficha.add(crearDatoFicha("CAPACIDAD", valorFila(filaModelo, 10, moto ? "2" : "5") + " personas"));
+        ficha.add(crearDatoFicha(moto ? "TIPO" : "PUERTAS", moto ? "Motocicleta" : valorFila(filaModelo, 16, "4")));
+        ficha.add(crearDatoFicha("KILOMETRAJE", km));
+        ficha.add(crearDatoFicha("CATEGORÍA", valorFila(filaModelo, 12, "No especificada")));
+        superior.add(ficha);
+
+        derecha.add(superior, BorderLayout.NORTH);
+
+        // Descripción
+        JPanel bloqueDescripcion = new JPanel(new BorderLayout(0, 6));
+        bloqueDescripcion.setOpaque(false);
+
+        JLabel lblDescripcion = new JLabel("DESCRIPCIÓN");
+        lblDescripcion.setForeground(COLOR_SECUNDARIO);
+        lblDescripcion.setFont(new Font("SansSerif", Font.BOLD, 11));
+        bloqueDescripcion.add(lblDescripcion, BorderLayout.NORTH);
+
+        JTextArea txtDescripcion = new JTextArea(valorFila(filaModelo, 13, "Sin descripción"));
+        txtDescripcion.setEditable(false);
+        txtDescripcion.setLineWrap(true);
+        txtDescripcion.setWrapStyleWord(true);
+        txtDescripcion.setFocusable(false);
+        txtDescripcion.setBackground(COLOR_CAMPO);
+        txtDescripcion.setForeground(COLOR_TEXTO);
+        txtDescripcion.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        txtDescripcion.setBorder(BorderFactory.createEmptyBorder(10, 12, 10, 12));
+
+        JScrollPane scrollDescripcion = new JScrollPane(txtDescripcion);
+        scrollDescripcion.setBorder(BorderFactory.createLineBorder(COLOR_BORDE));
+        scrollDescripcion.getViewport().setBackground(COLOR_CAMPO);
+        estilizarBarraDesplazamiento(scrollDescripcion);
+        bloqueDescripcion.add(scrollDescripcion, BorderLayout.CENTER);
+
+        derecha.add(bloqueDescripcion, BorderLayout.CENTER);
+
+        // Botón
+        JButton btnCerrar = new JButton("Cerrar");
         btnCerrar.setForeground(Color.WHITE);
         btnCerrar.setBackground(COLOR_ROJO);
-        btnCerrar.setFont(new Font("SansSerif", Font.BOLD, 12));
+        btnCerrar.setFont(new Font("SansSerif", Font.BOLD, 13));
         btnCerrar.setFocusPainted(false);
         btnCerrar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btnCerrar.setBorder(BorderFactory.createEmptyBorder(10, 30, 10, 30));
+        btnCerrar.setBorder(BorderFactory.createEmptyBorder(11, 36, 11, 36));
         agregarHover(btnCerrar);
-        btnCerrar.addActionListener(e -> dialog.dispose());
+        btnCerrar.addActionListener(e -> {
+            if (dialog != null) dialog.dispose();
+        });
 
+        JPanel panelBoton = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        panelBoton.setOpaque(false);
         panelBoton.add(btnCerrar);
-        panelPrincipal.add(panelBoton, BorderLayout.SOUTH);
+        derecha.add(panelBoton, BorderLayout.SOUTH);
 
-        dialog.setContentPane(panelPrincipal);
-        dialog.setVisible(true);
+        cuerpo.add(derecha, BorderLayout.CENTER);
+        raiz.add(cuerpo, BorderLayout.CENTER);
+
+        if (dialog != null) {
+            dialog.getRootPane().setDefaultButton(btnCerrar);
+        }
+
+        return raiz;
+    }
+
+    /** Casilla de la ficha técnica: título pequeño arriba y valor debajo. */
+    private JPanel crearDatoFicha(String titulo, String valor) {
+
+        JPanel celda = new JPanel();
+        celda.setLayout(new BoxLayout(celda, BoxLayout.Y_AXIS));
+        celda.setBackground(COLOR_CAMPO);
+        celda.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(COLOR_BORDE),
+                BorderFactory.createEmptyBorder(8, 12, 9, 12)));
+
+        JLabel lblTitulo = new JLabel(titulo);
+        lblTitulo.setForeground(COLOR_SECUNDARIO);
+        lblTitulo.setFont(new Font("SansSerif", Font.BOLD, 10));
+        lblTitulo.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel lblValor = new JLabel(valor);
+        lblValor.setForeground(COLOR_TEXTO);
+        lblValor.setFont(new Font("SansSerif", Font.BOLD, 15));
+        lblValor.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        celda.add(lblTitulo);
+        celda.add(Box.createVerticalStrut(3));
+        celda.add(lblValor);
+        return celda;
+    }
+
+    /** Barra superior idéntica a la de las demás ventanas (RENTCAR · título + botón cerrar). */
+    private JPanel crearBarraDialogo(JDialog dialog, String tituloVentana) {
+
+        Color fondo = new Color(12, 14, 18);
+
+        JPanel barra = new JPanel(new BorderLayout());
+        barra.setBackground(fondo);
+        barra.setPreferredSize(new Dimension(100, 38));
+        barra.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, COLOR_ROJO));
+
+        JLabel titulo = new JLabel("  RENTCAR  ·  " + tituloVentana);
+        titulo.setForeground(new Color(242, 243, 245));
+        titulo.setFont(new Font("SansSerif", Font.BOLD, 12));
+        titulo.setBorder(new EmptyBorder(0, 7, 0, 0));
+        barra.add(titulo, BorderLayout.CENTER);
+
+        JButton cerrar = new JButton() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(COLOR_ROJO);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.setColor(new Color(242, 243, 245));
+                g2.setStroke(new BasicStroke(1.7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = getWidth() / 2;
+                int cy = getHeight() / 2;
+                g2.drawLine(cx - 5, cy - 5, cx + 5, cy + 5);
+                g2.drawLine(cx + 5, cy - 5, cx - 5, cy + 5);
+                g2.dispose();
+            }
+        };
+        cerrar.setToolTipText("Cerrar");
+        cerrar.setOpaque(false);
+        cerrar.setContentAreaFilled(false);
+        cerrar.setBorderPainted(false);
+        cerrar.setFocusPainted(false);
+        cerrar.setFocusable(false);
+        cerrar.setPreferredSize(new Dimension(46, 36));
+        cerrar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        cerrar.addActionListener(e -> {
+            if (dialog != null) dialog.dispose();
+        });
+        barra.add(cerrar, BorderLayout.EAST);
+
+        // Arrastrar la ventana desde la barra
+        MouseAdapter arrastre = new MouseAdapter() {
+            private Point origenPantalla;
+            private Point origenVentana;
+
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (dialog == null) return;
+                origenPantalla = e.getLocationOnScreen();
+                origenVentana = dialog.getLocation();
+            }
+
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                if (dialog == null || origenPantalla == null || origenVentana == null) return;
+                Point actual = e.getLocationOnScreen();
+                dialog.setLocation(origenVentana.x + actual.x - origenPantalla.x,
+                        origenVentana.y + actual.y - origenPantalla.y);
+            }
+        };
+        barra.addMouseListener(arrastre);
+        barra.addMouseMotionListener(arrastre);
+        titulo.addMouseListener(arrastre);
+        titulo.addMouseMotionListener(arrastre);
+
+        return barra;
     }
 
     private String valorFila(int fila, int columna, String defecto) {
@@ -2046,6 +2364,36 @@ public class MainPublicView extends JFrame {
     // =========================================================
     // RESERVAR
     // =========================================================
+
+    /** Reserva solicitada durante la sesión (guarda la foto para mostrarla en "Mis reservas"). */
+    private static class ReservaSesion {
+
+        final String foto, tipo, marca, modelo, placa, lugar, recogida, devolucion, total;
+        final long dias;
+
+        ReservaSesion(String foto, String tipo, String marca, String modelo, String placa,
+                String lugar, String recogida, String devolucion, long dias, String total) {
+            this.foto = foto;
+            this.tipo = tipo;
+            this.marca = marca;
+            this.modelo = modelo;
+            this.placa = placa;
+            this.lugar = lugar;
+            this.recogida = recogida;
+            this.devolucion = devolucion;
+            this.dias = dias;
+            this.total = total;
+        }
+
+        boolean esMoto() {
+            return "MOTO".equalsIgnoreCase(tipo);
+        }
+
+        String duracion() {
+            return dias + (dias == 1 ? " día" : " días");
+        }
+    }
+
     private void reservarVehiculo(String marca, String modelo, String placa, Object precio, int fila) {
         if (!Boolean.parseBoolean(valorFila(fila, 15, "true"))) {
             mostrarMensajePersonalizado("Este vehículo no está disponible para alquiler.", "No disponible");
@@ -2053,162 +2401,563 @@ public class MainPublicView extends JFrame {
         }
 
         long dias = Math.max(1, (fechaDevolucion.getTime() - fechaRecogida.getTime()) / (24L * 60 * 60 * 1000));
-        String resumen = (valorFila(fila, 5, "AUTO").equalsIgnoreCase("MOTO") ? "Moto" : "Auto") + " " + marca + " " + modelo
-                + " (" + placa + ")\nLugar: " + comboLugar.getSelectedItem()
-                + "\nFechas: " + formatearFecha(fechaRecogida) + " - " + formatearFecha(fechaDevolucion)
-                + "\nTotal estimado: " + formatearPrecio(((Number) precio).doubleValue() * dias);
+        double precioDia = precio instanceof Number ? ((Number) precio).doubleValue() : 0;
 
-        boolean confirmado = mostrarConfirmacionReserva(
-                resumen + "\n\n¿Agregar a Mis reservas de esta sesión?",
-                "Solicitar reserva"
-        );
+        ReservaSesion reserva = new ReservaSesion(
+                valorFila(fila, 0, ""),
+                valorFila(fila, 5, "AUTO"),
+                marca, modelo, placa,
+                String.valueOf(comboLugar.getSelectedItem()),
+                formatearFecha(fechaRecogida),
+                formatearFecha(fechaDevolucion),
+                dias,
+                formatearPrecio(precioDia * dias));
 
-        if (confirmado) {
-            reservasSesion.add(resumen);
+        if (mostrarConfirmacionReserva(reserva)) {
+            reservasSesion.add(reserva);
             mostrarMensajePersonalizado("Solicitud agregada a Mis reservas durante esta sesión.", "Reserva exitosa");
         }
     }
 
-    private boolean mostrarConfirmacionReserva(String mensaje, String titulo) {
-        JDialog dialog = new JDialog(this, titulo, true);
-        dialog.setSize(440, 280);
-        dialog.setLocationRelativeTo(this);
+    // ---------- piezas reutilizables de las ventanas ----------
+
+    private JButton crearBotonPrimario(String texto) {
+        JButton b = new JButton(texto);
+        b.setForeground(Color.WHITE);
+        b.setBackground(COLOR_ROJO);
+        b.setFont(new Font("SansSerif", Font.BOLD, 13));
+        b.setFocusPainted(false);
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        b.setBorder(BorderFactory.createEmptyBorder(11, 30, 11, 30));
+        agregarHover(b);
+        return b;
+    }
+
+    private JButton crearBotonSecundario(String texto) {
+        JButton b = new JButton(texto);
+        b.setForeground(COLOR_TEXTO);
+        b.setBackground(COLOR_CAMPO);
+        b.setFont(new Font("SansSerif", Font.BOLD, 13));
+        b.setFocusPainted(false);
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        b.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(COLOR_BORDE),
+                BorderFactory.createEmptyBorder(10, 28, 10, 28)));
+        b.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                b.setBackground(COLOR_BORDE);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                b.setBackground(COLOR_CAMPO);
+            }
+        });
+        return b;
+    }
+
+    /** Ventana modal sin marco nativo: barra RENTCAR + cuerpo. */
+    private JDialog crearDialogoRentCar(Window owner, String titulo, int ancho, int alto, JPanel cuerpo) {
+        JDialog dialog = new JDialog(owner, titulo, Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setUndecorated(true);
         dialog.setResizable(false);
 
-        JPanel panelPrincipal = new JPanel(new BorderLayout(0, 15));
-        panelPrincipal.setBackground(COLOR_PANEL);
-        panelPrincipal.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(COLOR_BORDE, 1),
-                BorderFactory.createEmptyBorder(20, 24, 20, 24)
-        ));
+        JPanel raiz = new JPanel(new BorderLayout());
+        raiz.setBackground(COLOR_PANEL);
+        raiz.setBorder(BorderFactory.createLineBorder(new Color(48, 51, 58)));
+        raiz.add(crearBarraDialogo(dialog, titulo), BorderLayout.NORTH);
+        raiz.add(cuerpo, BorderLayout.CENTER);
 
-        JLabel lblTitulo = new JLabel(titulo);
-        lblTitulo.setForeground(COLOR_TEXTO);
-        lblTitulo.setFont(new Font("SansSerif", Font.BOLD, 16));
-        panelPrincipal.add(lblTitulo, BorderLayout.NORTH);
+        dialog.setContentPane(raiz);
+        dialog.setSize(ancho, alto);
+        dialog.setLocationRelativeTo(owner);
+        dialog.getRootPane().registerKeyboardAction(
+                e -> dialog.dispose(),
+                KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0),
+                JComponent.WHEN_IN_FOCUSED_WINDOW);
+        return dialog;
+    }
 
-        JTextPane txtInfo = new JTextPane();
-        txtInfo.setText(mensaje);
-        txtInfo.setEditable(false);
-        txtInfo.setBackground(COLOR_CAMPO);
-        txtInfo.setForeground(COLOR_TEXTO);
-        txtInfo.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        txtInfo.setFocusable(false);
-        txtInfo.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+    private JPanel crearEncabezadoDialogo(String pequeno, String titulo, String subtitulo) {
+        JPanel encabezado = new JPanel();
+        encabezado.setOpaque(false);
+        encabezado.setLayout(new BoxLayout(encabezado, BoxLayout.Y_AXIS));
 
-        JScrollPane scrollInfo = new JScrollPane(txtInfo);
-        scrollInfo.setBorder(BorderFactory.createLineBorder(COLOR_BORDE));
-        scrollInfo.getViewport().setBackground(COLOR_CAMPO);
-        panelPrincipal.add(scrollInfo, BorderLayout.CENTER);
+        JLabel l1 = new JLabel(pequeno);
+        l1.setForeground(COLOR_ROJO_HOVER);
+        l1.setFont(new Font("SansSerif", Font.BOLD, 12));
+        l1.setAlignmentX(Component.LEFT_ALIGNMENT);
+        encabezado.add(l1);
+        encabezado.add(Box.createVerticalStrut(6));
 
-        JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
-        panelBotones.setOpaque(false);
+        JLabel l2 = new JLabel(titulo);
+        l2.setForeground(COLOR_TEXTO);
+        l2.setFont(new Font("SansSerif", Font.BOLD, 26));
+        l2.setAlignmentX(Component.LEFT_ALIGNMENT);
+        encabezado.add(l2);
+
+        if (subtitulo != null) {
+            encabezado.add(Box.createVerticalStrut(4));
+            JLabel l3 = new JLabel(subtitulo);
+            l3.setForeground(COLOR_SECUNDARIO);
+            l3.setFont(new Font("SansSerif", Font.PLAIN, 14));
+            l3.setAlignmentX(Component.LEFT_ALIGNMENT);
+            encabezado.add(l3);
+        }
+        return encabezado;
+    }
+
+    // ---------- confirmación de reserva ----------
+
+    private boolean mostrarConfirmacionReserva(ReservaSesion r) {
 
         final boolean[] confirmado = {false};
 
-        JButton btnSi = new JButton("Sí, agregar");
-        btnSi.setForeground(Color.WHITE);
-        btnSi.setBackground(COLOR_ROJO);
-        btnSi.setFont(new Font("SansSerif", Font.BOLD, 12));
-        btnSi.setFocusPainted(false);
-        btnSi.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btnSi.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
-        agregarHover(btnSi);
+        JPanel cuerpo = new JPanel(new BorderLayout());
+        cuerpo.setOpaque(false);
+
+        ImagenCoverLabel foto = new ImagenCoverLabel(cargarImagenOriginal(r.foto));
+        foto.setPreferredSize(new Dimension(0, 200));
+        cuerpo.add(foto, BorderLayout.NORTH);
+
+        JPanel centro = new JPanel(new BorderLayout(0, 14));
+        centro.setOpaque(false);
+        centro.setBorder(BorderFactory.createEmptyBorder(20, 28, 22, 28));
+
+        JPanel fila = new JPanel(new BorderLayout());
+        fila.setOpaque(false);
+        JPanel textos = new JPanel();
+        textos.setOpaque(false);
+        textos.setLayout(new BoxLayout(textos, BoxLayout.Y_AXIS));
+        JLabel tipo = new JLabel((r.esMoto() ? "MOTOCICLETA" : "AUTOMÓVIL") + "  ·  " + r.marca.toUpperCase(Locale.ROOT));
+        tipo.setForeground(COLOR_ROJO_HOVER);
+        tipo.setFont(new Font("SansSerif", Font.BOLD, 12));
+        tipo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JLabel modelo = new JLabel(r.modelo);
+        modelo.setForeground(COLOR_TEXTO);
+        modelo.setFont(new Font("SansSerif", Font.BOLD, 22));
+        modelo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        textos.add(tipo);
+        textos.add(Box.createVerticalStrut(4));
+        textos.add(modelo);
+        fila.add(textos, BorderLayout.CENTER);
+        fila.add(crearPlacaColombiana(r.placa), BorderLayout.EAST);
+        centro.add(fila, BorderLayout.NORTH);
+
+        JPanel ficha = new JPanel(new GridLayout(0, 2, 10, 10));
+        ficha.setOpaque(false);
+        ficha.add(crearDatoFicha("LUGAR DE RECOGIDA", r.lugar));
+        ficha.add(crearDatoFicha("FECHAS", r.recogida + " → " + r.devolucion));
+        ficha.add(crearDatoFicha("DURACIÓN", r.duracion()));
+        ficha.add(crearDatoFicha("TOTAL ESTIMADO", r.total));
+        JPanel envolturaFicha = new JPanel(new BorderLayout());
+        envolturaFicha.setOpaque(false);
+        envolturaFicha.add(ficha, BorderLayout.NORTH);
+        centro.add(envolturaFicha, BorderLayout.CENTER);
+
+        JPanel sur = new JPanel(new BorderLayout(0, 14));
+        sur.setOpaque(false);
+        JLabel pregunta = new JLabel("¿Agregar a Mis reservas de esta sesión?");
+        pregunta.setForeground(COLOR_SECUNDARIO);
+        pregunta.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        sur.add(pregunta, BorderLayout.NORTH);
+
+        JButton btnSi = crearBotonPrimario("Sí, agregar");
+        JButton btnNo = crearBotonSecundario("Cancelar");
+        JPanel botones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        botones.setOpaque(false);
+        botones.add(btnNo);
+        botones.add(btnSi);
+        sur.add(botones, BorderLayout.SOUTH);
+        centro.add(sur, BorderLayout.SOUTH);
+
+        cuerpo.add(centro, BorderLayout.CENTER);
+
+        JDialog dialog = crearDialogoRentCar(this, "Solicitar reserva", 620, 585, cuerpo);
         btnSi.addActionListener(e -> {
             confirmado[0] = true;
             dialog.dispose();
         });
-
-        JButton btnNo = new JButton("Cancelar");
-        btnNo.setForeground(COLOR_TEXTO);
-        btnNo.setBackground(COLOR_CAMPO);
-        btnNo.setFont(new Font("SansSerif", Font.BOLD, 12));
-        btnNo.setFocusPainted(false);
-        btnNo.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btnNo.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(COLOR_BORDE),
-                BorderFactory.createEmptyBorder(10, 20, 10, 20)
-        ));
-        btnNo.addActionListener(e -> {
-            confirmado[0] = false;
-            dialog.dispose();
-        });
-
-        panelBotones.add(btnSi);
-        panelBotones.add(btnNo);
-        panelPrincipal.add(panelBotones, BorderLayout.SOUTH);
-
-        dialog.setContentPane(panelPrincipal);
+        btnNo.addActionListener(e -> dialog.dispose());
+        dialog.getRootPane().setDefaultButton(btnSi);
         dialog.setVisible(true);
 
         return confirmado[0];
     }
 
-    private void mostrarMensajePersonalizado(String mensaje, String titulo) {
-        JDialog dialog = new JDialog(this, titulo, true);
-        dialog.setSize(400, 200);
-        dialog.setLocationRelativeTo(this);
-        dialog.setResizable(false);
+    // ---------- mensajes cortos ----------
 
-        JPanel panelPrincipal = new JPanel(new BorderLayout(0, 15));
-        panelPrincipal.setBackground(COLOR_PANEL);
-        panelPrincipal.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(COLOR_BORDE, 1),
-                BorderFactory.createEmptyBorder(20, 24, 20, 24)
-        ));
+    private void mostrarMensajePersonalizado(String mensaje, String titulo) {
+        mostrarMensajePersonalizado(this, mensaje, titulo);
+    }
+
+    private void mostrarMensajePersonalizado(Window owner, String mensaje, String titulo) {
+
+        JPanel cuerpo = new JPanel(new BorderLayout(0, 16));
+        cuerpo.setOpaque(false);
+        cuerpo.setBorder(BorderFactory.createEmptyBorder(26, 32, 24, 32));
 
         JLabel lblTitulo = new JLabel(titulo);
         lblTitulo.setForeground(COLOR_TEXTO);
-        lblTitulo.setFont(new Font("SansSerif", Font.BOLD, 16));
-        panelPrincipal.add(lblTitulo, BorderLayout.NORTH);
+        lblTitulo.setFont(new Font("SansSerif", Font.BOLD, 22));
+        cuerpo.add(lblTitulo, BorderLayout.NORTH);
 
-        JTextPane txtInfo = new JTextPane();
-        txtInfo.setText(mensaje);
-        txtInfo.setEditable(false);
-        txtInfo.setBackground(COLOR_CAMPO);
-        txtInfo.setForeground(COLOR_TEXTO);
-        txtInfo.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        txtInfo.setFocusable(false);
-        txtInfo.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        JTextArea txt = new JTextArea(mensaje);
+        txt.setEditable(false);
+        txt.setLineWrap(true);
+        txt.setWrapStyleWord(true);
+        txt.setFocusable(false);
+        txt.setOpaque(false);
+        txt.setForeground(COLOR_SECUNDARIO);
+        txt.setFont(new Font("SansSerif", Font.PLAIN, 15));
+        cuerpo.add(txt, BorderLayout.CENTER);
 
-        JScrollPane scrollInfo = new JScrollPane(txtInfo);
-        scrollInfo.setBorder(BorderFactory.createLineBorder(COLOR_BORDE));
-        scrollInfo.getViewport().setBackground(COLOR_CAMPO);
-        panelPrincipal.add(scrollInfo, BorderLayout.CENTER);
-
-        JPanel panelBoton = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        JButton btn = crearBotonPrimario("Aceptar");
+        JPanel panelBoton = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         panelBoton.setOpaque(false);
+        panelBoton.add(btn);
+        cuerpo.add(panelBoton, BorderLayout.SOUTH);
 
-        JButton btnAceptar = new JButton("Aceptar");
-        btnAceptar.setForeground(Color.WHITE);
-        btnAceptar.setBackground(COLOR_ROJO);
-        btnAceptar.setFont(new Font("SansSerif", Font.BOLD, 12));
-        btnAceptar.setFocusPainted(false);
-        btnAceptar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btnAceptar.setBorder(BorderFactory.createEmptyBorder(10, 30, 10, 30));
-        agregarHover(btnAceptar);
-        btnAceptar.addActionListener(e -> dialog.dispose());
-
-        panelBoton.add(btnAceptar);
-        panelPrincipal.add(panelBoton, BorderLayout.SOUTH);
-
-        dialog.setContentPane(panelPrincipal);
+        JDialog dialog = crearDialogoRentCar(owner, titulo, 480, 240, cuerpo);
+        btn.addActionListener(e -> dialog.dispose());
+        dialog.getRootPane().setDefaultButton(btn);
         dialog.setVisible(true);
+    }
+
+    // ---------- resumen de búsqueda ----------
+
+    private void mostrarResumenBusqueda(String lugar, String marca, int minimo, int maximo) {
+
+        JPanel cuerpo = new JPanel(new BorderLayout(0, 18));
+        cuerpo.setOpaque(false);
+        cuerpo.setBorder(BorderFactory.createEmptyBorder(26, 32, 24, 32));
+
+        cuerpo.add(crearEncabezadoDialogo("RESULTADOS", "Búsqueda realizada",
+                "Estos son los criterios que aplicaste."), BorderLayout.NORTH);
+
+        JPanel ficha = new JPanel(new GridLayout(0, 2, 10, 10));
+        ficha.setOpaque(false);
+        ficha.add(crearDatoFicha("LUGAR", lugar));
+        ficha.add(crearDatoFicha("MARCA", marca));
+        ficha.add(crearDatoFicha("RECOGIDA", formatearFecha(fechaRecogida)));
+        ficha.add(crearDatoFicha("DEVOLUCIÓN", formatearFecha(fechaDevolucion)));
+        ficha.add(crearDatoFicha("PRECIO MÍNIMO", formatearPrecio(minimo)));
+        ficha.add(crearDatoFicha("PRECIO MÁXIMO", formatearPrecio(maximo)));
+        JPanel envoltura = new JPanel(new BorderLayout());
+        envoltura.setOpaque(false);
+        envoltura.add(ficha, BorderLayout.NORTH);
+        cuerpo.add(envoltura, BorderLayout.CENTER);
+
+        JButton btn = crearBotonPrimario("Aceptar");
+        JPanel panelBoton = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        panelBoton.setOpaque(false);
+        panelBoton.add(btn);
+        cuerpo.add(panelBoton, BorderLayout.SOUTH);
+
+        JDialog dialog = crearDialogoRentCar(this, "Búsqueda", 580, 420, cuerpo);
+        btn.addActionListener(e -> dialog.dispose());
+        dialog.getRootPane().setDefaultButton(btn);
+        dialog.setVisible(true);
+    }
+
+    // ---------- Mis reservas ----------
+
+    private void mostrarMisReservas() {
+
+        JPanel cuerpo = new JPanel(new BorderLayout(0, 16));
+        cuerpo.setOpaque(false);
+        cuerpo.setBorder(BorderFactory.createEmptyBorder(26, 32, 24, 32));
+
+        int n = reservasSesion.size();
+        cuerpo.add(crearEncabezadoDialogo("TUS SOLICITUDES", "Mis reservas",
+                n == 0 ? "Aquí aparecerán los vehículos que reserves."
+                        : n + (n == 1 ? " solicitud" : " solicitudes") + " en esta sesión."),
+                BorderLayout.NORTH);
+
+        JButton btnCerrar = crearBotonPrimario(n == 0 ? "Ver vehículos" : "Cerrar");
+
+        if (n == 0) {
+            JPanel vacio = new JPanel();
+            vacio.setBackground(COLOR_CAMPO);
+            vacio.setBorder(BorderFactory.createLineBorder(COLOR_BORDE));
+            vacio.setLayout(new BoxLayout(vacio, BoxLayout.Y_AXIS));
+
+            JLabel l1 = new JLabel("Todavía no has solicitado reservas");
+            l1.setForeground(COLOR_TEXTO);
+            l1.setFont(new Font("SansSerif", Font.BOLD, 18));
+            l1.setAlignmentX(Component.CENTER_ALIGNMENT);
+            JLabel l2 = new JLabel("Pulsa «Reservar» en cualquier vehículo del catálogo.");
+            l2.setForeground(COLOR_SECUNDARIO);
+            l2.setFont(new Font("SansSerif", Font.PLAIN, 14));
+            l2.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+            vacio.add(Box.createVerticalGlue());
+            vacio.add(l1);
+            vacio.add(Box.createVerticalStrut(8));
+            vacio.add(l2);
+            vacio.add(Box.createVerticalGlue());
+            cuerpo.add(vacio, BorderLayout.CENTER);
+
+        } else {
+            JPanel lista = new JPanel();
+            lista.setOpaque(false);
+            lista.setLayout(new BoxLayout(lista, BoxLayout.Y_AXIS));
+
+            for (ReservaSesion r : reservasSesion) {
+                JPanel tarjeta = crearTarjetaReserva(r);
+                tarjeta.setAlignmentX(Component.LEFT_ALIGNMENT);
+                lista.add(tarjeta);
+                lista.add(Box.createVerticalStrut(12));
+            }
+
+            JPanel envoltura = new JPanel(new BorderLayout());
+            envoltura.setOpaque(false);
+            envoltura.add(lista, BorderLayout.NORTH);
+
+            JScrollPane scroll = new JScrollPane(envoltura,
+                    ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                    ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+            scroll.setBorder(BorderFactory.createEmptyBorder());
+            scroll.setOpaque(false);
+            scroll.getViewport().setOpaque(false);
+            scroll.getVerticalScrollBar().setUnitIncrement(24);
+            estilizarBarraDesplazamiento(scroll);
+            cuerpo.add(scroll, BorderLayout.CENTER);
+        }
+
+        JPanel panelBoton = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        panelBoton.setOpaque(false);
+        panelBoton.add(btnCerrar);
+        cuerpo.add(panelBoton, BorderLayout.SOUTH);
+
+        JDialog dialog = crearDialogoRentCar(this, "Mis reservas", 800, 640, cuerpo);
+        btnCerrar.addActionListener(e -> dialog.dispose());
+        dialog.getRootPane().setDefaultButton(btnCerrar);
+        dialog.setVisible(true);
+    }
+
+    /** Tarjeta de una reserva: foto del vehículo a la izquierda y los datos a la derecha. */
+    private JPanel crearTarjetaReserva(ReservaSesion r) {
+
+        JPanel tarjeta = new JPanel(new BorderLayout());
+        tarjeta.setBackground(COLOR_CARD);
+        tarjeta.setBorder(BorderFactory.createLineBorder(COLOR_BORDE));
+        tarjeta.setPreferredSize(new Dimension(0, 160));
+        tarjeta.setMaximumSize(new Dimension(Integer.MAX_VALUE, 160));
+
+        ImagenCoverLabel foto = new ImagenCoverLabel(cargarImagenOriginal(r.foto));
+        foto.setPreferredSize(new Dimension(230, 0));
+        tarjeta.add(foto, BorderLayout.WEST);
+
+        JPanel info = new JPanel(new BorderLayout(0, 6));
+        info.setOpaque(false);
+        info.setBorder(BorderFactory.createEmptyBorder(14, 18, 14, 18));
+
+        JPanel textos = new JPanel();
+        textos.setOpaque(false);
+        textos.setLayout(new BoxLayout(textos, BoxLayout.Y_AXIS));
+
+        JLabel tipo = new JLabel((r.esMoto() ? "MOTOCICLETA" : "AUTOMÓVIL") + "  ·  " + r.marca.toUpperCase(Locale.ROOT));
+        tipo.setForeground(COLOR_ROJO_HOVER);
+        tipo.setFont(new Font("SansSerif", Font.BOLD, 11));
+        tipo.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel modelo = new JLabel(r.modelo);
+        modelo.setForeground(COLOR_TEXTO);
+        modelo.setFont(new Font("SansSerif", Font.BOLD, 19));
+        modelo.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel lugar = new JLabel(r.lugar);
+        lugar.setForeground(COLOR_SECUNDARIO);
+        lugar.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        lugar.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel fechas = new JLabel(r.recogida + " → " + r.devolucion + "  ·  " + r.duracion());
+        fechas.setForeground(COLOR_SECUNDARIO);
+        fechas.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        fechas.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        textos.add(tipo);
+        textos.add(Box.createVerticalStrut(4));
+        textos.add(modelo);
+        textos.add(Box.createVerticalStrut(4));
+        textos.add(lugar);
+        textos.add(Box.createVerticalStrut(2));
+        textos.add(fechas);
+        info.add(textos, BorderLayout.CENTER);
+
+        JPanel pie = new JPanel(new BorderLayout());
+        pie.setOpaque(false);
+        pie.add(crearPlacaColombiana(r.placa), BorderLayout.WEST);
+
+        JPanel total = new JPanel();
+        total.setOpaque(false);
+        total.setLayout(new BoxLayout(total, BoxLayout.Y_AXIS));
+        JLabel lblTotal = new JLabel("TOTAL ESTIMADO");
+        lblTotal.setForeground(COLOR_SECUNDARIO);
+        lblTotal.setFont(new Font("SansSerif", Font.BOLD, 10));
+        lblTotal.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        JLabel valor = new JLabel(r.total);
+        valor.setForeground(COLOR_TEXTO);
+        valor.setFont(new Font("SansSerif", Font.BOLD, 22));
+        valor.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        total.add(lblTotal);
+        total.add(valor);
+        pie.add(total, BorderLayout.EAST);
+
+        info.add(pie, BorderLayout.SOUTH);
+        tarjeta.add(info, BorderLayout.CENTER);
+
+        return tarjeta;
     }
 
     // =========================================================
     // AYUDA
     // =========================================================
     private void mostrarAyuda() {
-        String texto = "<html><div style='width:330px;'>"
-                + "<h2>Ayuda RentCar</h2>"
-                + "1. Selecciona el lugar donde recogerás el vehículo.<br><br>"
-                + "2. Selecciona la fecha de recogida y devolución.<br><br>"
-                + "3. Ajusta el precio mínimo y máximo.<br><br>"
-                + "4. Utiliza los filtros para encontrar un vehículo.<br><br>"
-                + "5. Pulsa <b>Buscar vehículos</b>."
-                + "</div></html>";
-        JOptionPane.showMessageDialog(this, texto, "Ayuda", JOptionPane.INFORMATION_MESSAGE);
+
+        JDialog dialog = new JDialog(this, "Ayuda", true);
+        dialog.setUndecorated(true);
+        dialog.setResizable(false);
+
+        dialog.setContentPane(construirPanelAyuda(dialog));
+        dialog.setSize(640, 600);
+        dialog.setLocationRelativeTo(this);
+
+        // ESC cierra la ventana
+        dialog.getRootPane().registerKeyboardAction(
+                e -> dialog.dispose(),
+                KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0),
+                JComponent.WHEN_IN_FOCUSED_WINDOW);
+
+        dialog.setVisible(true);
+    }
+
+    private JPanel construirPanelAyuda(JDialog dialog) {
+
+        JPanel raiz = new JPanel(new BorderLayout());
+        raiz.setBackground(COLOR_PANEL);
+        raiz.setBorder(BorderFactory.createLineBorder(new Color(48, 51, 58)));
+
+        raiz.add(crearBarraDialogo(dialog, "Ayuda"), BorderLayout.NORTH);
+
+        JPanel cuerpo = new JPanel(new BorderLayout(0, 18));
+        cuerpo.setOpaque(false);
+        cuerpo.setBorder(BorderFactory.createEmptyBorder(26, 32, 24, 32));
+
+        // ---------------- ENCABEZADO ----------------
+        JPanel encabezado = new JPanel();
+        encabezado.setOpaque(false);
+        encabezado.setLayout(new BoxLayout(encabezado, BoxLayout.Y_AXIS));
+
+        JLabel pequeno = new JLabel("GUÍA RÁPIDA");
+        pequeno.setForeground(COLOR_ROJO_HOVER);
+        pequeno.setFont(new Font("SansSerif", Font.BOLD, 12));
+        pequeno.setAlignmentX(Component.LEFT_ALIGNMENT);
+        encabezado.add(pequeno);
+        encabezado.add(Box.createVerticalStrut(6));
+
+        JLabel titulo = new JLabel("Ayuda RentCar");
+        titulo.setForeground(COLOR_TEXTO);
+        titulo.setFont(new Font("SansSerif", Font.BOLD, 28));
+        titulo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        encabezado.add(titulo);
+        encabezado.add(Box.createVerticalStrut(4));
+
+        JLabel subtitulo = new JLabel("Reserva tu auto o moto en cinco pasos.");
+        subtitulo.setForeground(COLOR_SECUNDARIO);
+        subtitulo.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        subtitulo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        encabezado.add(subtitulo);
+
+        cuerpo.add(encabezado, BorderLayout.NORTH);
+
+        // ---------------- PASOS ----------------
+        JPanel pasos = new JPanel(new GridLayout(0, 1, 0, 10));
+        pasos.setOpaque(false);
+
+        pasos.add(crearPasoAyuda(1, "Elige el lugar", "Selecciona dónde recogerás el vehículo."));
+        pasos.add(crearPasoAyuda(2, "Define las fechas", "Selecciona la fecha de recogida y de devolución."));
+        pasos.add(crearPasoAyuda(3, "Ajusta el precio", "Mueve el control para fijar el precio mínimo y máximo por día."));
+        pasos.add(crearPasoAyuda(4, "Usa los filtros", "Filtra por tipo, categoría, marca o disponibilidad para encontrar tu vehículo."));
+        pasos.add(crearPasoAyuda(5, "Busca y reserva", "Pulsa «Buscar vehículos» y luego «Reservar» en el que más te guste."));
+
+        cuerpo.add(pasos, BorderLayout.CENTER);
+
+        // ---------------- BOTÓN ----------------
+        JButton btnCerrar = new JButton("Entendido");
+        btnCerrar.setForeground(Color.WHITE);
+        btnCerrar.setBackground(COLOR_ROJO);
+        btnCerrar.setFont(new Font("SansSerif", Font.BOLD, 13));
+        btnCerrar.setFocusPainted(false);
+        btnCerrar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnCerrar.setBorder(BorderFactory.createEmptyBorder(11, 36, 11, 36));
+        agregarHover(btnCerrar);
+        btnCerrar.addActionListener(e -> {
+            if (dialog != null) dialog.dispose();
+        });
+
+        JPanel panelBoton = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        panelBoton.setOpaque(false);
+        panelBoton.add(btnCerrar);
+        cuerpo.add(panelBoton, BorderLayout.SOUTH);
+
+        raiz.add(cuerpo, BorderLayout.CENTER);
+
+        if (dialog != null) {
+            dialog.getRootPane().setDefaultButton(btnCerrar);
+        }
+
+        return raiz;
+    }
+
+    /** Fila de la guía: círculo rojo con el número y, al lado, título y descripción. */
+    private JPanel crearPasoAyuda(int numero, String titulo, String descripcion) {
+
+        JPanel fila = new JPanel(new BorderLayout(16, 0));
+        fila.setBackground(COLOR_CAMPO);
+        fila.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(COLOR_BORDE),
+                BorderFactory.createEmptyBorder(8, 14, 8, 14)));
+
+        JLabel insignia = new JLabel(String.valueOf(numero), SwingConstants.CENTER) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(COLOR_ROJO);
+                g2.fillOval(0, 0, getWidth() - 1, getHeight() - 1);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        insignia.setOpaque(false);
+        insignia.setForeground(Color.WHITE);
+        insignia.setFont(new Font("SansSerif", Font.BOLD, 15));
+        insignia.setPreferredSize(new Dimension(36, 36));
+
+        JPanel envolturaInsignia = new JPanel(new GridBagLayout());
+        envolturaInsignia.setOpaque(false);
+        envolturaInsignia.add(insignia);
+        fila.add(envolturaInsignia, BorderLayout.WEST);
+
+        JPanel textos = new JPanel(new GridLayout(2, 1, 0, 2));
+        textos.setOpaque(false);
+
+        JLabel lblTitulo = new JLabel(titulo);
+        lblTitulo.setForeground(COLOR_TEXTO);
+        lblTitulo.setFont(new Font("SansSerif", Font.BOLD, 15));
+
+        JLabel lblDescripcion = new JLabel(descripcion);
+        lblDescripcion.setForeground(COLOR_SECUNDARIO);
+        lblDescripcion.setFont(new Font("SansSerif", Font.PLAIN, 13));
+
+        textos.add(lblTitulo);
+        textos.add(lblDescripcion);
+        fila.add(textos, BorderLayout.CENTER);
+
+        return fila;
     }
 
     // =========================================================
