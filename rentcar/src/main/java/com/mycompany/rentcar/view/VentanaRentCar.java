@@ -8,10 +8,10 @@ import java.awt.event.MouseEvent;
 
 /** Barra superior personalizada para las ventanas principales de RentCar. */
 public final class VentanaRentCar {
-    private static final Color FONDO = new Color(12, 14, 18);
-    private static final Color TEXTO = new Color(242, 243, 245);
+    private static final Color FONDO = new Color(242, 244, 248);
+    private static final Color TEXTO = new Color(23, 27, 34);
     private static final Color ROJO = new Color(224, 43, 49);
-    private static final Color HOVER = new Color(48, 51, 58);
+    private static final Color HOVER = new Color(211, 217, 226);
 
     private VentanaRentCar() { }
 
@@ -23,7 +23,7 @@ public final class VentanaRentCar {
 
         JPanel raiz = new JPanel(new BorderLayout());
         raiz.setBackground(FONDO);
-        raiz.setBorder(BorderFactory.createLineBorder(new Color(48, 51, 58)));
+        raiz.setBorder(BorderFactory.createLineBorder(new Color(211, 217, 226)));
 
         JPanel barra = new JPanel(new BorderLayout());
         barra.setBackground(FONDO);
@@ -98,7 +98,7 @@ public final class VentanaRentCar {
                 g2.setColor(getModel().isRollover() && tipo != TipoControl.CERRAR
                         ? ROJO : fondo);
                 g2.fillRect(0, 0, getWidth(), getHeight());
-                g2.setColor(TEXTO);
+                g2.setColor(tipo == TipoControl.CERRAR || getModel().isRollover() ? Color.WHITE : TEXTO);
                 g2.setStroke(new BasicStroke(1.7f, BasicStroke.CAP_ROUND,
                         BasicStroke.JOIN_ROUND));
                 int cx = getWidth() / 2;

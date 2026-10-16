@@ -7,9 +7,13 @@ import java.util.*;
 
 /** Acceso a datos de autos y motos. Conserva compatibilidad con el esquema antiguo. */
 public class VehiculoDAO {
+    // Las columnas se verifican una sola vez por ejecución (antes: en cada new VehiculoDAO())
+    private static boolean columnasListas = false;
+
     public VehiculoDAO(){ asegurarColumnasNuevas(); }
 
-    private void asegurarColumnasNuevas(){
+    private static synchronized void asegurarColumnasNuevas(){
+        if(columnasListas) return;
         String[][] columnas={
             {"tipo","VARCHAR(12) NOT NULL DEFAULT 'AUTO'"},{"anio","INT NOT NULL DEFAULT 0"},
             {"color","VARCHAR(40) DEFAULT ''"},{"transmision","VARCHAR(40) DEFAULT ''"},
@@ -28,6 +32,7 @@ public class VehiculoDAO {
                 try(Statement st=c.createStatement()){st.executeUpdate("ALTER TABLE vehiculos ADD COLUMN "+col[0]+" "+col[1]);}
                 catch(SQLException ex){System.err.println("No se pudo agregar columna "+col[0]+": "+ex.getMessage());}
             }
+            columnasListas=true;
         }catch(SQLException ex){System.err.println("No se pudieron verificar las columnas extendidas de vehiculos: "+ex.getMessage());}
     }
 

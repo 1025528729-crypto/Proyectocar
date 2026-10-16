@@ -20,10 +20,12 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
@@ -101,31 +103,46 @@ public class VehiculoView extends JFrame {
     private JTable tablaVehiculos;
     private DefaultTableModel modeloTabla;
 
+    // PÁGINAS (formulario / tabla a pantalla completa)
+    private static final String PAG_FORM = "form";
+    private static final String PAG_TABLA = "tabla";
+    private CardLayout paginas;
+    private JPanel contenedorPaginas;
+    private JLabel lblTarjetaTabla;
+    private JLabel lblContadorTabla;
+    private JButton btnVolverFormulario;
+
+    private static final String[] COLUMNAS_TABLA = {
+        "Foto", "Placa", "Marca", "Modelo", "Precio / Día",
+        "Tipo", "Año", "Color", "Transmisión", "Combustible",
+        "Capacidad", "Puertas", "Kilometraje", "Categoría", "Ciudad", "Estado"
+    };
+
 
     // ============================================================
     // COLORES
     // ============================================================
 
     private final Color COLOR_FONDO =
-            new Color(11, 13, 17);
+            new Color(242, 244, 248);
 
     private final Color COLOR_ENCABEZADO =
-            new Color(8, 9, 12);
+            new Color(242, 244, 248);
 
     private final Color COLOR_PANEL =
-            new Color(20, 23, 28);
+            new Color(255, 255, 255);
 
     private final Color COLOR_BORDE =
-            new Color(38, 43, 51);
+            new Color(230, 234, 241);
 
     private final Color COLOR_CAMPO =
-            new Color(27, 31, 38);
+            new Color(238, 241, 246);
 
     private final Color COLOR_TEXTO =
-            new Color(240, 242, 245);
+            new Color(23, 27, 34);
 
     private final Color COLOR_GRIS =
-            new Color(156, 163, 175);
+            new Color(98, 105, 118);
 
     private final Color COLOR_ACENTO =
             new Color(225, 6, 0);
@@ -140,13 +157,13 @@ public class VehiculoView extends JFrame {
             new Color(150, 22, 22);
 
     private final Color COLOR_FILA =
-            new Color(20, 23, 28);
+            new Color(255, 255, 255);
 
     private final Color COLOR_FILA_ALT =
-            new Color(26, 30, 36);
+            new Color(238, 241, 246);
 
     private final Color COLOR_SELECCION =
-            new Color(70, 20, 22);
+            new Color(254, 228, 228);
 
     // PLACA
     private final Color COLOR_PLACA =
@@ -157,13 +174,13 @@ public class VehiculoView extends JFrame {
 
     // PRECIO DIGITAL
     private final Color COLOR_DISPLAY_FONDO =
-            new Color(6, 7, 9);
+            new Color(255, 244, 244);
 
     private final Color COLOR_DISPLAY_BORDE =
-            new Color(80, 22, 22);
+            new Color(232, 168, 168);
 
     private final Color COLOR_DISPLAY_ROJO =
-            new Color(255, 35, 35);
+            new Color(205, 18, 18);
 
 
     // ============================================================
@@ -322,7 +339,7 @@ public class VehiculoView extends JFrame {
 
         if (placa.isEmpty()) {
 
-            javax.swing.JOptionPane.showMessageDialog(
+            MensajeRentCar.mostrar(
                     this,
                     "Primero ingresa la placa del vehículo.",
                     "Placa requerida",
@@ -351,7 +368,7 @@ public class VehiculoView extends JFrame {
             mostrarVistaPrevia(archivo);
         } catch (IOException ex) {
 
-            javax.swing.JOptionPane.showMessageDialog(
+            MensajeRentCar.mostrar(
                     this,
                     "No se pudo guardar la foto: "
                     + ex.getMessage(),
@@ -362,6 +379,40 @@ public class VehiculoView extends JFrame {
     }
 
 
+    // Lee la foto saltando píxeles (máx. ~400 px): una foto de cámara de varios MB
+    // tardaba cientos de ms en decodificarse solo para mostrar una miniatura.
+    private BufferedImage leerFotoReducida(File archivo) throws IOException {
+
+        try (javax.imageio.stream.ImageInputStream in = ImageIO.createImageInputStream(archivo)) {
+
+            if (in == null) {
+                return null;
+            }
+
+            java.util.Iterator<javax.imageio.ImageReader> lectores = ImageIO.getImageReaders(in);
+
+            if (!lectores.hasNext()) {
+                return null;
+            }
+
+            javax.imageio.ImageReader lector = lectores.next();
+
+            try {
+                lector.setInput(in, true, true);
+
+                int paso = Math.max(1, Math.max(lector.getWidth(0), lector.getHeight(0)) / 400);
+
+                javax.imageio.ImageReadParam parametros = lector.getDefaultReadParam();
+                parametros.setSourceSubsampling(paso, paso, 0, 0);
+
+                return lector.read(0, parametros);
+
+            } finally {
+                lector.dispose();
+            }
+        }
+    }
+
     private void mostrarVistaPrevia(
             File archivo
     ) {
@@ -369,7 +420,7 @@ public class VehiculoView extends JFrame {
         try {
 
             BufferedImage imagen =
-                    ImageIO.read(
+                    leerFotoReducida(
                             archivo
                     );
 
@@ -734,9 +785,15 @@ public class VehiculoView extends JFrame {
         agregarCampoFormulario(seccionIdentificacion, "Marca", new MarcaPanel(logoMarca, comboMarca));
         agregarCampoFormulario(seccionIdentificacion, "Modelo", txtModelo);
         agregarCampoFormulario(seccionIdentificacion, "Precio por día (COP)", new PrecioPanel(txtPrecio));
-        agregarSeccionAlFormulario(panelFormulario, seccionIdentificacion);
+        JPanel colIzquierda = new JPanel();
+        colIzquierda.setLayout(new javax.swing.BoxLayout(colIzquierda, javax.swing.BoxLayout.Y_AXIS));
+        colIzquierda.setOpaque(false);
+        JPanel colDerecha = new JPanel();
+        colDerecha.setLayout(new javax.swing.BoxLayout(colDerecha, javax.swing.BoxLayout.Y_AXIS));
+        colDerecha.setOpaque(false);
+        agregarSeccionAlFormulario(colIzquierda, seccionIdentificacion);
 
-        JPanel seccionEspecificaciones = crearSeccionFormulario("02  ·  ESPECIFICACIONES");
+        JPanel seccionEspecificaciones = crearSeccionFormulario("03  ·  ESPECIFICACIONES");
         agregarCampoFormulario(seccionEspecificaciones, "Tipo de vehículo", comboTipo);
         agregarCampoFormulario(seccionEspecificaciones, "Año", txtAnio);
         agregarCampoFormulario(seccionEspecificaciones, "Color", txtColor);
@@ -747,90 +804,81 @@ public class VehiculoView extends JFrame {
         agregarCampoFormulario(seccionEspecificaciones, "Kilometraje (km)", txtKilometraje);
         agregarCampoFormulario(seccionEspecificaciones, "Categoría", comboCategoria);
         agregarCampoFormulario(seccionEspecificaciones, "Ciudad / ubicación", comboCiudad);
-        agregarSeccionAlFormulario(panelFormulario, seccionEspecificaciones);
+        agregarSeccionAlFormulario(colDerecha, seccionEspecificaciones);
 
-        JPanel seccionPublicacion = crearSeccionFormulario("03  ·  PUBLICACIÓN", 1);
+        JPanel seccionPublicacion = crearSeccionFormulario("02  ·  PUBLICACIÓN", 1);
         agregarCampoFormulario(seccionPublicacion, "Descripción breve", scrollDescripcion);
         JPanel estadoCampo = new JPanel(new BorderLayout());
         estadoCampo.setOpaque(false);
         estadoCampo.add(chkDisponible, BorderLayout.CENTER);
         agregarCampoFormulario(seccionPublicacion, "Estado", estadoCampo);
         agregarCampoFormulario(seccionPublicacion, "Fotografía del vehículo", crearPanelFoto());
-        agregarSeccionAlFormulario(panelFormulario, seccionPublicacion);
+        agregarSeccionAlFormulario(colIzquierda, seccionPublicacion);
 
-        JPanel accionesFormulario = new JPanel(new BorderLayout(0, 8));
-        accionesFormulario.setOpaque(false);
-        accionesFormulario.setBorder(BorderFactory.createEmptyBorder(12, 4, 4, 4));
-        JPanel accionesPrincipales = new JPanel(new GridLayout(1, 2, 8, 0));
-        accionesPrincipales.setOpaque(false);
+        JPanel columnasFormulario = new JPanel(new GridLayout(1, 2, 20, 0));
+        columnasFormulario.setOpaque(false);
+        JPanel envIzq = new JPanel(new BorderLayout());
+        envIzq.setOpaque(false);
+        envIzq.add(colIzquierda, BorderLayout.NORTH);
+        JPanel envDer = new JPanel(new BorderLayout());
+        envDer.setOpaque(false);
+        envDer.add(colDerecha, BorderLayout.NORTH);
+        columnasFormulario.add(envIzq);
+        columnasFormulario.add(envDer);
+        columnasFormulario.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panelFormulario.add(columnasFormulario);
+
         btnGuardar = new BotonRacing("Registrar vehículo", COLOR_ACENTO, COLOR_ACENTO_HOVER);
         configurarBoton(btnGuardar);
+        btnGuardar.setPreferredSize(new Dimension(260, 46));
         btnModificar = new BotonRacing("Modificar seleccionado", new Color(45, 63, 82), new Color(61, 87, 112));
         configurarBoton(btnModificar);
+        btnModificar.setPreferredSize(new Dimension(250, 42));
         btnEliminar = new BotonRacing("Eliminar seleccionado", COLOR_ELIMINAR, COLOR_ELIMINAR_HOVER);
         configurarBoton(btnEliminar);
-        accionesPrincipales.add(btnGuardar);
-        accionesPrincipales.add(btnModificar);
-        accionesFormulario.add(accionesPrincipales, BorderLayout.CENTER);
-        accionesFormulario.add(btnEliminar, BorderLayout.SOUTH);
-        accionesFormulario.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panelFormulario.add(accionesFormulario);
+        btnEliminar.setPreferredSize(new Dimension(240, 42));
 
         // ========================================================
-        // PANEL DERECHO
+        // PÁGINA DE LA TABLA (pantalla completa)
         // ========================================================
 
-        JPanel panelDerecho =
-                new JPanel(
-                        new BorderLayout(
-                                0,
-                                15
-                        )
-                );
-
+        JPanel panelDerecho = new JPanel(new BorderLayout(0, 15));
         panelDerecho.setOpaque(false);
 
+        JPanel barraTabla = new JPanel(new BorderLayout(15, 0));
+        barraTabla.setBackground(COLOR_PANEL);
+        barraTabla.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(COLOR_BORDE),
+                BorderFactory.createEmptyBorder(12, 15, 12, 15)));
 
-        // ========================================================
-        // TARJETAS
-        // ========================================================
+        btnVolverFormulario = new BotonRacing("\u2190  Volver al formulario", new Color(45, 63, 82), new Color(61, 87, 112));
+        configurarBoton(btnVolverFormulario);
+        btnVolverFormulario.setPreferredSize(new Dimension(250, 42));
+        btnVolverFormulario.addActionListener(e -> mostrarFormulario());
 
-        JPanel panelTarjetas =
-                new JPanel(
-                        new GridLayout(
-                                1,
-                                2,
-                                15,
-                                0
-                        )
-                );
+        JPanel tituloTabla = new JPanel(new GridLayout(2, 1, 0, 2));
+        tituloTabla.setOpaque(false);
+        JLabel lblTituloTabla = new JLabel("Vehículos registrados");
+        lblTituloTabla.setFont(orbitron(true, 17f));
+        lblTituloTabla.setForeground(COLOR_TEXTO);
+        lblContadorTabla = new JLabel("0 vehículos");
+        lblContadorTabla.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        lblContadorTabla.setForeground(COLOR_GRIS);
+        tituloTabla.add(lblTituloTabla);
+        tituloTabla.add(lblContadorTabla);
 
-        panelTarjetas.setOpaque(false);
+        JPanel accionesTabla = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        accionesTabla.setOpaque(false);
+        accionesTabla.add(btnModificar);
+        accionesTabla.add(btnEliminar);
 
-        JPanel tarjetaTotal =
-                crearTarjeta(
-                        "VEHÍCULOS REGISTRADOS",
-                        "Consulta la lista de vehículos disponibles"
-                );
-
-        JPanel tarjetaInfo =
-                crearTarjeta(
-                        "GESTIÓN",
-                        "Selecciona un vehículo para eliminarlo"
-                );
-
-        panelTarjetas.add(
-                tarjetaTotal
-        );
-
-        panelTarjetas.add(
-                tarjetaInfo
-        );
-
-        panelDerecho.add(
-                panelTarjetas,
-                BorderLayout.NORTH
-        );
+        JPanel izquierdaBarra = new JPanel(new BorderLayout(18, 0));
+        izquierdaBarra.setOpaque(false);
+        izquierdaBarra.add(btnVolverFormulario, BorderLayout.WEST);
+        izquierdaBarra.add(tituloTabla, BorderLayout.CENTER);
+        barraTabla.add(izquierdaBarra, BorderLayout.WEST);
+        barraTabla.add(accionesTabla, BorderLayout.EAST);
+        panelDerecho.add(barraTabla, BorderLayout.NORTH);
 
 
         // ========================================================
@@ -885,10 +933,6 @@ public class VehiculoView extends JFrame {
                 )
         );
 
-        panelTabla.add(
-                lblLista,
-                BorderLayout.NORTH
-        );
 
 
         // ========================================================
@@ -897,13 +941,7 @@ public class VehiculoView extends JFrame {
 
         modeloTabla =
                 new DefaultTableModel(
-                        new String[]{
-                                "Foto",
-                                "Placa",
-                                "Marca",
-                                "Modelo",
-                                "Precio / Día"
-                        },
+                        COLUMNAS_TABLA,
                         0
                 ) {
 
@@ -915,7 +953,19 @@ public class VehiculoView extends JFrame {
 
                         return false;
                     }
+
+                    // Acepta filas con solo las 5 primeras columnas (versión anterior del presenter)
+                    @Override
+                    public void addRow(Object[] fila) {
+
+                        if (fila != null && fila.length < getColumnCount()) {
+                            fila = java.util.Arrays.copyOf(fila, getColumnCount());
+                        }
+                        super.addRow(fila);
+                    }
                 };
+
+        modeloTabla.addTableModelListener(e -> actualizarContadorVehiculos());
 
 
         // ========================================================
@@ -925,17 +975,26 @@ public class VehiculoView extends JFrame {
         tablaVehiculos =
                 new JTable(
                         modeloTabla
-                );
+                ) {
+                    // Si la ventana es más ancha que la tabla, las columnas se estiran;
+                    // si es más angosta, aparece la barra horizontal.
+                    @Override
+                    public boolean getScrollableTracksViewportWidth() {
+                        return getParent() == null
+                                || getPreferredSize().width <= getParent().getWidth();
+                    }
+                };
+        tablaVehiculos.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
 
         // MÁS ALTA PARA MOSTRAR FOTOS
         tablaVehiculos.setRowHeight(
-                112
+                120
         );
 
         tablaVehiculos.setFont(
                 orbitron(
                         false,
-                        11f
+                        13f
                 )
         );
 
@@ -952,7 +1011,7 @@ public class VehiculoView extends JFrame {
         );
 
         tablaVehiculos.setSelectionForeground(
-                Color.WHITE
+                COLOR_TEXTO
         );
 
         tablaVehiculos.setShowVerticalLines(
@@ -997,7 +1056,7 @@ public class VehiculoView extends JFrame {
                 .setPreferredSize(
                         new Dimension(
                                 0,
-                                40
+                                48
                         )
                 );
 
@@ -1006,76 +1065,23 @@ public class VehiculoView extends JFrame {
         // RENDERIZADORES
         // ========================================================
 
-        // COLUMNA 0 = FOTO
-        tablaVehiculos
-                .getColumnModel()
-                .getColumn(0)
-                .setCellRenderer(
-                        new FotoCeldaRenderer()
-                );
+        javax.swing.table.TableColumnModel columnas = tablaVehiculos.getColumnModel();
+        columnas.getColumn(0).setCellRenderer(new FotoCeldaRenderer());
+        columnas.getColumn(1).setCellRenderer(new PlacaCeldaRenderer());
+        columnas.getColumn(2).setCellRenderer(new CeldaRenderer());
+        columnas.getColumn(3).setCellRenderer(new CeldaRenderer());
+        columnas.getColumn(4).setCellRenderer(new PrecioCeldaRenderer());
+        for (int i = 5; i < COLUMNAS_TABLA.length; i++) {
+            columnas.getColumn(i).setCellRenderer(new DatoCeldaRenderer());
+        }
 
-        // COLUMNA 1 = PLACA
-        tablaVehiculos
-                .getColumnModel()
-                .getColumn(1)
-                .setCellRenderer(
-                        new PlacaCeldaRenderer()
-                );
-
-        // COLUMNA 2 = MARCA
-        tablaVehiculos
-                .getColumnModel()
-                .getColumn(2)
-                .setCellRenderer(
-                        new CeldaRenderer()
-                );
-
-        // COLUMNA 3 = MODELO
-        tablaVehiculos
-                .getColumnModel()
-                .getColumn(3)
-                .setCellRenderer(
-                        new CeldaRenderer()
-                );
-
-        // COLUMNA 4 = PRECIO
-        tablaVehiculos
-                .getColumnModel()
-                .getColumn(4)
-                .setCellRenderer(
-                        new PrecioCeldaRenderer()
-                );
-
-
-        // ========================================================
-        // ANCHOS
-        // ========================================================
-
-        tablaVehiculos
-                .getColumnModel()
-                .getColumn(0)
-                .setPreferredWidth(130);
-        tablaVehiculos.getColumnModel().getColumn(0).setMinWidth(120);
-
-        tablaVehiculos
-                .getColumnModel()
-                .getColumn(1)
-                .setPreferredWidth(120);
-
-        tablaVehiculos
-                .getColumnModel()
-                .getColumn(2)
-                .setPreferredWidth(130);
-
-        tablaVehiculos
-                .getColumnModel()
-                .getColumn(3)
-                .setPreferredWidth(140);
-
-        tablaVehiculos
-                .getColumnModel()
-                .getColumn(4)
-                .setPreferredWidth(160);
+        int[] anchos = {130, 160, 130, 200, 170, 75, 65, 100, 125, 110, 100, 85, 115, 115, 195, 140};
+        for (int i = 0; i < anchos.length; i++) {
+            columnas.getColumn(i).setPreferredWidth(anchos[i]);
+            columnas.getColumn(i).setMinWidth(Math.min(anchos[i], 60));
+        }
+        columnas.getColumn(0).setMinWidth(120);
+        columnas.getColumn(1).setMinWidth(150);
 
 
         // ========================================================
@@ -1085,9 +1091,10 @@ public class VehiculoView extends JFrame {
         JScrollPane scrollTabla =
                 new JScrollPane(
                         tablaVehiculos,
-                        JScrollPane.VERTICAL_SCROLLBAR_NEVER,
-                        JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+                        JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                        JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED
                 );
+        scrollTabla.getVerticalScrollBar().setUnitIncrement(24);
 
         scrollTabla.setBorder(BorderFactory.createLineBorder(COLOR_BORDE));
         scrollTabla.setBackground(COLOR_PANEL);
@@ -1135,11 +1142,37 @@ public class VehiculoView extends JFrame {
         scrollFormulario.getViewport().setBackground(COLOR_FONDO);
         scrollFormulario.getVerticalScrollBar().setUnitIncrement(18);
         estilizarBarraDesplazamiento(scrollFormulario);
-        scrollFormulario.setPreferredSize(new Dimension(610, 0));
-        panelPrincipal.add(scrollFormulario, BorderLayout.WEST);
+
+        // Franja superior del formulario: la tarjeta de vehículos abre la tabla completa
+        JPanel franjaTarjetas = new JPanel(new GridLayout(1, 2, 15, 0));
+        franjaTarjetas.setOpaque(false);
+        franjaTarjetas.add(crearTarjetaTabla());
+        franjaTarjetas.add(crearTarjeta(
+                "GESTIÓN",
+                "Para modificar o eliminar, abre la tabla y selecciona un vehículo"));
+
+        JPanel barraAcciones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        barraAcciones.setBackground(COLOR_PANEL);
+        barraAcciones.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(COLOR_BORDE),
+                BorderFactory.createEmptyBorder(12, 15, 12, 15)));
+        barraAcciones.add(btnGuardar);
+
+        JPanel paginaFormulario = new JPanel(new BorderLayout(0, 15));
+        paginaFormulario.setOpaque(false);
+        paginaFormulario.add(franjaTarjetas, BorderLayout.NORTH);
+        paginaFormulario.add(scrollFormulario, BorderLayout.CENTER);
+        paginaFormulario.add(barraAcciones, BorderLayout.SOUTH);
+
+        paginas = new CardLayout();
+        contenedorPaginas = new JPanel(paginas);
+        contenedorPaginas.setOpaque(false);
+        contenedorPaginas.add(paginaFormulario, PAG_FORM);
+        contenedorPaginas.add(panelDerecho, PAG_TABLA);
+        paginas.show(contenedorPaginas, PAG_FORM);
 
         panelPrincipal.add(
-                panelDerecho,
+                contenedorPaginas,
                 BorderLayout.CENTER
         );
 
@@ -1147,6 +1180,83 @@ public class VehiculoView extends JFrame {
                 panelPrincipal,
                 BorderLayout.CENTER
         );
+
+        actualizarContadorVehiculos();
+    }
+
+
+    // ============================================================
+    // NAVEGACIÓN ENTRE PÁGINAS
+    // ============================================================
+
+    public void mostrarFormulario() {
+        paginas.show(contenedorPaginas, PAG_FORM);
+    }
+
+    public void mostrarTabla() {
+        paginas.show(contenedorPaginas, PAG_TABLA);
+        tablaVehiculos.requestFocusInWindow();
+    }
+
+    private void actualizarContadorVehiculos() {
+        int n = modeloTabla == null ? 0 : modeloTabla.getRowCount();
+        String texto = n == 1 ? "1 vehículo registrado" : n + " vehículos registrados";
+        if (lblContadorTabla != null) {
+            lblContadorTabla.setText(texto);
+        }
+        if (lblTarjetaTabla != null) {
+            lblTarjetaTabla.setText("<html>" + texto + "  ·  <font color='#E10600'>Clic para ver la tabla completa \u2192</font></html>");
+        }
+    }
+
+    /** Tarjeta "Vehículos registrados": al hacer clic abre la tabla a pantalla completa. */
+    private JPanel crearTarjetaTabla() {
+
+        final JPanel tarjeta = new JPanel(new BorderLayout(0, 5));
+        tarjeta.setBackground(COLOR_PANEL);
+        final javax.swing.border.Border normal = BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(COLOR_BORDE),
+                BorderFactory.createEmptyBorder(12, 15, 12, 15));
+        final javax.swing.border.Border resaltado = BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(COLOR_ACENTO),
+                BorderFactory.createEmptyBorder(12, 15, 12, 15));
+        tarjeta.setBorder(normal);
+
+        JLabel lblTitulo = new JLabel("VEHÍCULOS REGISTRADOS");
+        lblTitulo.setFont(orbitron(true, 10f));
+        lblTitulo.setForeground(COLOR_ACENTO);
+
+        lblTarjetaTabla = new JLabel("0 vehículos registrados");
+        lblTarjetaTabla.setFont(new Font("Arial", Font.PLAIN, 11));
+        lblTarjetaTabla.setForeground(COLOR_GRIS);
+
+        tarjeta.add(lblTitulo, BorderLayout.NORTH);
+        tarjeta.add(lblTarjetaTabla, BorderLayout.CENTER);
+
+        tarjeta.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        tarjeta.setToolTipText("Ver la tabla de vehículos a pantalla completa");
+        MouseAdapter clic = new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                mostrarTabla();
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                tarjeta.setBorder(resaltado);
+                tarjeta.setBackground(new Color(238, 241, 246));
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                tarjeta.setBorder(normal);
+                tarjeta.setBackground(COLOR_PANEL);
+            }
+        };
+        tarjeta.addMouseListener(clic);
+        lblTarjetaTabla.addMouseListener(clic);
+        lblTitulo.addMouseListener(clic);
+        return tarjeta;
     }
 
 
@@ -1229,6 +1339,13 @@ public class VehiculoView extends JFrame {
                 BufferedImage imagen =
                         ImageIO.read(is);
 
+                if (ruta.contains("rentcar_logo")) {
+                    BufferedImage oscuro = TemaRentCar.logoOscuro();
+                    if (oscuro != null) {
+                        imagen = oscuro;
+                    }
+                }
+
                 return new LogoIcon(
                         imagen,
                         altura
@@ -1246,12 +1363,20 @@ public class VehiculoView extends JFrame {
     }
 
 
+    /**
+     * Icono que se dibuja a la resolución real de la pantalla (también con
+     * escala de Windows 125 %, 150 %...), por eso el logo no se ve pixelado.
+     */
     private static class LogoIcon
             implements javax.swing.Icon {
 
         private final BufferedImage imagen;
         private final int altura;
         private final int ancho;
+
+        private BufferedImage cache;
+        private int cacheW = -1;
+        private int cacheH = -1;
 
         public LogoIcon(
                 BufferedImage imagen,
@@ -1262,7 +1387,7 @@ public class VehiculoView extends JFrame {
             this.altura = altura;
 
             this.ancho =
-                    (int) (
+                    (int) Math.round(
                             imagen.getWidth()
                             * (
                                     altura
@@ -1291,14 +1416,48 @@ public class VehiculoView extends JFrame {
                 int y
         ) {
 
-            g.drawImage(
-                    imagen,
-                    x,
-                    y,
-                    ancho,
-                    altura,
-                    null
-            );
+            Graphics2D g2 = (Graphics2D) g.create();
+
+            java.awt.geom.AffineTransform t = g2.getTransform();
+            double sx = t.getScaleX() > 0 ? t.getScaleX() : 1;
+            double sy = t.getScaleY() > 0 ? t.getScaleY() : 1;
+
+            int pw = Math.max(1, (int) Math.round(ancho * sx));
+            int ph = Math.max(1, (int) Math.round(altura * sy));
+
+            if (cache == null || cacheW != pw || cacheH != ph) {
+                cache = escalarSuave(imagen, pw, ph);
+                cacheW = pw;
+                cacheH = ph;
+            }
+
+            g2.scale(1.0 / sx, 1.0 / sy);
+            g2.drawImage(cache, (int) Math.round(x * sx), (int) Math.round(y * sy), null);
+            g2.dispose();
+        }
+
+        /** Reduce con calidad: mitad por mitad y bicúbica al final. */
+        private static BufferedImage escalarSuave(BufferedImage origen, int anchoFinal, int altoFinal) {
+            BufferedImage actual = origen;
+            int w = origen.getWidth();
+            int h = origen.getHeight();
+            while (w / 2 >= anchoFinal && h / 2 >= altoFinal) {
+                w /= 2;
+                h /= 2;
+                actual = redimensionar(actual, w, h);
+            }
+            return redimensionar(actual, anchoFinal, altoFinal);
+        }
+
+        private static BufferedImage redimensionar(BufferedImage origen, int ancho, int alto) {
+            BufferedImage destino = new BufferedImage(Math.max(1, ancho), Math.max(1, alto), BufferedImage.TYPE_INT_ARGB_PRE);
+            Graphics2D g2 = destino.createGraphics();
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.drawImage(origen, 0, 0, destino.getWidth(), destino.getHeight(), null);
+            g2.dispose();
+            return destino;
         }
     }
 
@@ -1465,8 +1624,123 @@ public class VehiculoView extends JFrame {
     // RENDER PLACA
     // ============================================================
 
+    // @fijo-inicio
     private class PlacaCeldaRenderer
-            extends DefaultTableCellRenderer {
+            extends JPanel
+            implements javax.swing.table.TableCellRenderer {
+
+        private String placa = "";
+        private boolean moto = false;
+        private boolean seleccionada = false;
+        private int fila = 0;
+
+        public PlacaCeldaRenderer() {
+            setOpaque(false);
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(
+                JTable table,
+                Object value,
+                boolean isSelected,
+                boolean hasFocus,
+                int row,
+                int column
+        ) {
+            placa = value == null ? "" : value.toString().trim().toUpperCase(Locale.ROOT);
+            seleccionada = isSelected;
+            fila = row;
+            Object tipo = table.getModel().getValueAt(table.convertRowIndexToModel(row), 5);
+            moto = tipo != null && "MOTO".equalsIgnoreCase(tipo.toString());
+            return this;
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+
+            // Fondo de la fila
+            g2.setColor(seleccionada ? COLOR_SELECCION : (fila % 2 == 0 ? COLOR_FILA : COLOR_FILA_ALT));
+            g2.fillRect(0, 0, getWidth(), getHeight());
+
+            // Tamaño de la placa: carro (rectangular) o moto (más cuadrada)
+            int pw = moto ? 104 : 142;
+            int ph = moto ? 74 : 70;
+            pw = Math.min(pw, getWidth() - 16);
+            int x = (getWidth() - pw) / 2;
+            int y = (getHeight() - ph) / 2;
+            int arco = 14;
+
+            // Sombra
+            g2.setColor(new Color(0, 0, 0, 90));
+            g2.fillRoundRect(x + 2, y + 4, pw, ph, arco, arco);
+
+            // Borde negro exterior
+            g2.setColor(new Color(18, 18, 18));
+            g2.fillRoundRect(x, y, pw, ph, arco, arco);
+
+            // Lámina amarilla con degradado
+            g2.setPaint(new java.awt.GradientPaint(
+                    0, y, new Color(255, 221, 20),
+                    0, y + ph, new Color(244, 186, 0)));
+            g2.fillRoundRect(x + 3, y + 3, pw - 6, ph - 6, arco - 4, arco - 4);
+
+            // Marco interior fino
+            g2.setColor(new Color(18, 18, 18, 190));
+            g2.setStroke(new BasicStroke(1.4f));
+            g2.drawRoundRect(x + 7, y + 7, pw - 15, ph - 15, 8, 8);
+
+            // Tornillos
+            g2.setColor(new Color(60, 50, 10, 170));
+            g2.fillOval(x + 11, y + ph / 2 - 3, 6, 6);
+            g2.fillOval(x + pw - 17, y + ph / 2 - 3, 6, 6);
+
+            // "COLOMBIA"
+            g2.setColor(new Color(18, 18, 18));
+            Font fPais = new Font("Arial", Font.BOLD, 9);
+            g2.setFont(fPais);
+            String pais = "C O L O M B I A";
+            FontMetrics fmP = g2.getFontMetrics();
+            g2.drawString(pais, x + (pw - fmP.stringWidth(pais)) / 2, y + 20);
+
+            // Número de la placa, ajustado al ancho disponible
+            int disponible = pw - 38;
+            float tam = moto ? 20f : 25f;
+            Font fPlaca = orbitron(true, tam);
+            g2.setFont(fPlaca);
+            FontMetrics fm = g2.getFontMetrics();
+            while (fm.stringWidth(placa) > disponible && tam > 11f) {
+                tam -= 1f;
+                fPlaca = orbitron(true, tam);
+                g2.setFont(fPlaca);
+                fm = g2.getFontMetrics();
+            }
+            int tx = x + (pw - fm.stringWidth(placa)) / 2;
+            int ty = y + 22 + (ph - 22 - 8 + fm.getAscent() - fm.getDescent()) / 2;
+            g2.drawString(placa, tx, ty);
+
+            // Resaltado cuando la fila está seleccionada
+            if (seleccionada) {
+                g2.setColor(COLOR_ACENTO_HOVER);
+                g2.setStroke(new BasicStroke(2f));
+                g2.drawRoundRect(x - 3, y - 3, pw + 5, ph + 5, arco + 4, arco + 4);
+            }
+
+            g2.dispose();
+        }
+    }
+
+    // @fijo-fin
+    // ============================================================
+    // DATOS GENERALES EN TABLA (tipo, año, color, etc.)
+    // ============================================================
+
+    private class DatoCeldaRenderer
+            extends CeldaRenderer {
 
         @Override
         public Component getTableCellRendererComponent(
@@ -1478,64 +1752,35 @@ public class VehiculoView extends JFrame {
                 int column
         ) {
 
-            JLabel label =
-                    (JLabel) super
-                            .getTableCellRendererComponent(
-                                    table,
-                                    value,
-                                    isSelected,
-                                    hasFocus,
-                                    row,
-                                    column
-                            );
+            String nombre = table.getColumnName(column);
+            String texto;
 
-            label.setText(
-                    value == null
-                            ? ""
-                            : value.toString()
-            );
-
-            label.setHorizontalAlignment(
-                    SwingConstants.CENTER
-            );
-
-            label.setFont(
-                    orbitron(
-                            true,
-                            16f
-                    )
-            );
-
-            label.setForeground(
-                    COLOR_PLACA_TEXTO
-            );
-
-            label.setBackground(
-                    COLOR_PLACA
-            );
-
-            label.setOpaque(true);
-
-            label.setBorder(
-                    BorderFactory.createEmptyBorder(
-                            4,
-                            8,
-                            4,
-                            8
-                    )
-            );
-
-            if (isSelected) {
-
-                label.setBackground(
-                        new Color(
-                                255,
-                                220,
-                                50
-                        )
-                );
+            if (value == null || value.toString().trim().isEmpty()) {
+                texto = "—";
+            } else if (value instanceof Boolean) {
+                texto = ((Boolean) value) ? "● Disponible" : "● No disponible";
+            } else if (value instanceof Number) {
+                long n = ((Number) value).longValue();
+                if (n <= 0 && !nombre.equals("Kilometraje")) {
+                    texto = "—";
+                } else if (nombre.equals("Kilometraje")) {
+                    texto = formatearMiles(n) + " km";
+                } else {
+                    texto = String.valueOf(n);
+                }
+            } else {
+                texto = value.toString();
             }
 
+            JLabel label = (JLabel) super.getTableCellRendererComponent(
+                    table, texto, isSelected, hasFocus, row, column);
+
+            if (value instanceof Boolean && !isSelected) {
+                label.setForeground(((Boolean) value) ? new Color(22, 150, 70) : COLOR_GRIS);
+            } else if (nombre.equals("Tipo") && !isSelected) {
+                label.setForeground("MOTO".equalsIgnoreCase(texto) ? new Color(200, 110, 0) : COLOR_TEXTO);
+            }
+            label.setToolTipText(texto);
             return label;
         }
     }
@@ -1644,7 +1889,7 @@ public class VehiculoView extends JFrame {
             label.setFont(
                     orbitron(
                             true,
-                            8f
+                            11f
                     )
             );
 
@@ -1707,7 +1952,7 @@ public class VehiculoView extends JFrame {
                 if (!fotoCargada) {
 
                     label.setForeground(
-                            Color.WHITE
+                            COLOR_TEXTO
                     );
                 }
 
@@ -1761,19 +2006,24 @@ public class VehiculoView extends JFrame {
             return null;
         }
 
-        String clave =
-                marca
-                        .trim()
-                        .toLowerCase()
-                        .replace(
-                                " ",
-                                "-"
-                        );
+        boolean moto = comboTipo != null && "MOTO".equalsIgnoreCase(getTipo());
+        String base = marca.trim().toLowerCase(Locale.ROOT);
+        String clave = (moto ? "moto:" : "auto:") + base;
 
         if (logosMarca.containsKey(clave)) {
 
             return logosMarca.get(clave);
         }
+
+        // Algunos logos de motos tienen otro nombre de archivo
+        java.util.List<String> nombres = new java.util.ArrayList<>();
+        if (moto) {
+            if (base.equals("honda")) nombres.add("hondamoto");
+            if (base.equals("bmw motorrad")) nombres.add("bmw motorroad");
+        }
+        nombres.add(base.replace(" ", "-"));
+        nombres.add(base.replace(" ", ""));
+        nombres.add(base);
 
         BufferedImage logo = null;
 
@@ -1783,19 +2033,16 @@ public class VehiculoView extends JFrame {
                 "jpeg"
         };
 
-        for (String ext : extensiones) {
+        buscar:
+        for (String nombre : nombres) {
+            for (String ext : extensiones) {
 
-            logo =
-                    leerLogoMarca(
-                            "/images/marcas/"
-                            + clave
-                            + "."
-                            + ext
-                    );
+                logo = leerLogoMarca("/images/marcas/" + nombre + "." + ext);
 
-            if (logo != null) {
+                if (logo != null) {
 
-                break;
+                    break buscar;
+                }
             }
         }
 
@@ -2596,7 +2843,7 @@ public class VehiculoView extends JFrame {
                             );
 
                             label.setForeground(
-                                    Color.WHITE
+                                    COLOR_TEXTO
                             );
 
                         } else {
@@ -3093,7 +3340,7 @@ public class VehiculoView extends JFrame {
             label.setFont(
                     orbitron(
                             true,
-                            10f
+                            14f
                     )
             );
 
@@ -3116,11 +3363,7 @@ public class VehiculoView extends JFrame {
             if (isSelected) {
 
                 label.setBackground(
-                        new Color(
-                                25,
-                                10,
-                                12
-                        )
+                        new Color(253, 238, 238)
                 );
             }
 
@@ -3337,7 +3580,7 @@ public class VehiculoView extends JFrame {
             label.setFont(
                     orbitron(
                             false,
-                            10f
+                            14f
                     )
             );
 
@@ -3348,7 +3591,7 @@ public class VehiculoView extends JFrame {
                 );
 
                 label.setForeground(
-                        Color.WHITE
+                        COLOR_TEXTO
                 );
 
             } else {
@@ -3420,7 +3663,7 @@ public class VehiculoView extends JFrame {
             label.setFont(
                     orbitron(
                             true,
-                            10f
+                            12f
                     )
             );
 
@@ -3672,9 +3915,9 @@ public class VehiculoView extends JFrame {
     }
 
     private void aplicarTemaMenus() {
-        Color fondo = new Color(20, 23, 28);
-        Color campo = new Color(27, 31, 38);
-        Color texto = new Color(240, 242, 245);
+        Color fondo = new Color(255, 255, 255);
+        Color campo = new Color(238, 241, 246);
+        Color texto = new Color(23, 27, 34);
         Color acento = new Color(225, 6, 0);
         UIManager.put("MenuBar.background", fondo);
         UIManager.put("MenuBar.foreground", texto);
@@ -3691,13 +3934,13 @@ public class VehiculoView extends JFrame {
         UIManager.put("ComboBox.foreground", texto);
         UIManager.put("List.background", campo);
         UIManager.put("List.foreground", texto);
-        UIManager.put("ScrollBar.thumb", new Color(65, 70, 80));
-        UIManager.put("ScrollBar.track", new Color(17, 19, 24));
+        UIManager.put("ScrollBar.thumb", new Color(183, 183, 187));
+        UIManager.put("ScrollBar.track", new Color(255, 255, 255));
     }
 
     private void estilizarBarraDesplazamiento(JScrollPane scroll) {
-        java.awt.Color pista = new java.awt.Color(17, 19, 24);
-        java.awt.Color pulgar = new java.awt.Color(65, 70, 80);
+        java.awt.Color pista = new Color(255, 255, 255);
+        java.awt.Color pulgar = new Color(183, 183, 187);
         java.awt.Color pulgarHover = new java.awt.Color(225, 6, 0);
         for (javax.swing.JScrollBar barra : new javax.swing.JScrollBar[]{
                 scroll.getVerticalScrollBar(), scroll.getHorizontalScrollBar()}) {
@@ -3892,13 +4135,14 @@ public class VehiculoView extends JFrame {
 
     public void setModoEdicion(boolean editando) {
         txtPlaca.setEditable(!editando);
-        txtPlaca.setBackground(editando ? new Color(38, 42, 49) : COLOR_CAMPO);
+        txtPlaca.setBackground(editando ? new Color(230, 234, 241) : COLOR_CAMPO);
         btnGuardar.setText(editando ? "Guardar modificación" : "Registrar vehículo");
         btnModificar.setText(editando ? "Editar otro" : "Modificar seleccionado");
     }
 
     public void cargarVehiculoEnFormulario(Vehiculo v) {
         if (v == null) return;
+        mostrarFormulario();
         txtPlaca.setText(v.getPlaca());
         // Primero seleccionar el tipo para cargar la lista de marcas correspondiente.
         comboTipo.setSelectedItem(v.getTipo());
@@ -3922,7 +4166,7 @@ public class VehiculoView extends JFrame {
             if (!rutaFotoSeleccionada.isBlank()) {
                 try {
                     File archivoFoto = FotoVehiculoUtil.resolver(rutaFotoSeleccionada);
-                    BufferedImage imagen = archivoFoto == null ? null : ImageIO.read(archivoFoto);
+                    BufferedImage imagen = archivoFoto == null ? null : leerFotoReducida(archivoFoto);
                     if (imagen != null) {
                         lblFotoPreview.setIcon(new ImageIcon(imagen.getScaledInstance(125, 78, java.awt.Image.SCALE_SMOOTH)));
                         lblFotoPreview.setText("");

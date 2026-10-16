@@ -13,28 +13,38 @@ public class RegistroView extends JFrame {
     private JTextField txtUsuario;
     private JPasswordField txtPassword;
     private JPasswordField txtConfirmPassword;
+    private JComboBox<String> comboPregunta;
+    private JTextField txtRespuesta;
     private JButton btnRegistrar;
     private JButton btnVolver;
+
+    public static final String[] PREGUNTAS = {
+        "¿Cuál es el nombre de tu primera mascota?",
+        "¿En qué ciudad naciste?",
+        "¿Cuál es tu comida favorita?",
+        "¿Cómo se llama tu mejor amigo de la infancia?",
+        "¿Cuál fue tu primer colegio?"
+    };
 
     private Font orbitronRegular;
     private Font orbitronBold;
 
-    private final Color FONDO = new Color(10, 10, 12);
-    private final Color TARJETA = new Color(22, 22, 26);
-    private final Color TARJETA2 = new Color(28, 28, 33);
+    private final Color FONDO = new Color(242, 244, 248);
+    private final Color TARJETA = new Color(255, 255, 255);
+    private final Color TARJETA2 = new Color(238, 241, 246);
     private final Color ROJO = new Color(220, 38, 38);
     private final Color ROJO_OSCURO = new Color(150, 25, 25);
-    private final Color BLANCO = new Color(245, 245, 245);
-    private final Color GRIS = new Color(165, 165, 170);
-    private final Color BORDE = new Color(55, 55, 62);
+    private final Color BLANCO = new Color(23, 27, 34);
+    private final Color GRIS = new Color(98, 105, 118);
+    private final Color BORDE = new Color(211, 217, 226);
 
     public RegistroView() {
 
         cargarFuentes();
 
         setTitle("RentCar - Crear Nueva Cuenta");
-        setSize(560, 780);
-        setMinimumSize(new Dimension(500, 720));
+        setSize(560, 940);
+        setMinimumSize(new Dimension(500, 880));
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -129,7 +139,7 @@ public class RegistroView extends JFrame {
         );
 
         Dimension tamañoTarjeta =
-                new Dimension(440, 650);
+                new Dimension(440, 810);
 
         tarjeta.setPreferredSize(tamañoTarjeta);
         tarjeta.setMinimumSize(tamañoTarjeta);
@@ -217,7 +227,24 @@ public class RegistroView extends JFrame {
         tarjeta.add(lblConfirmar);
         tarjeta.add(Box.createVerticalStrut(7));
         tarjeta.add(txtConfirmPassword);
-        tarjeta.add(Box.createVerticalStrut(27));
+        tarjeta.add(Box.createVerticalStrut(20));
+
+        // PREGUNTA DE SEGURIDAD (sirve para recuperar la contraseña)
+        JLabel lblPregunta = crearEtiqueta("PREGUNTA DE SEGURIDAD");
+        comboPregunta = crearComboPregunta();
+
+        tarjeta.add(lblPregunta);
+        tarjeta.add(Box.createVerticalStrut(7));
+        tarjeta.add(comboPregunta);
+        tarjeta.add(Box.createVerticalStrut(20));
+
+        JLabel lblRespuesta = crearEtiqueta("TU RESPUESTA");
+        txtRespuesta = crearCampo("Respuesta para recuperar tu contraseña");
+
+        tarjeta.add(lblRespuesta);
+        tarjeta.add(Box.createVerticalStrut(7));
+        tarjeta.add(txtRespuesta);
+        tarjeta.add(Box.createVerticalStrut(24));
 
         // REGISTRAR
         btnRegistrar =
@@ -254,41 +281,11 @@ public class RegistroView extends JFrame {
         JLabel logo = new JLabel();
 
         try {
-
-            ImageIcon icono =
-                    new ImageIcon(
-                            getClass().getResource(
-                                    "/images/rentcar_logo.png"
-                            )
-                    );
-
-            Image imagen =
-                    icono.getImage();
-
-            int ancho = 200;
-
-            int alto =
-                    imagen.getHeight(null) > 0
-                    ? (int) (
-                            (double)
-                            imagen.getHeight(null)
-                            /
-                            imagen.getWidth(null)
-                            *
-                            ancho
-                    )
-                    : 80;
-
-            imagen =
-                    imagen.getScaledInstance(
-                            ancho,
-                            alto,
-                            Image.SCALE_SMOOTH
-                    );
-
-            logo.setIcon(
-                    new ImageIcon(imagen)
-            );
+            javax.swing.Icon icono = TemaRentCar.logoIcono(200, 120);
+            if (icono == null) {
+                throw new IllegalStateException("sin logo");
+            }
+            logo.setIcon(icono);
 
         } catch (Exception e) {
 
@@ -557,7 +554,7 @@ public class RegistroView extends JFrame {
                             java.awt.event.MouseEvent e) {
 
                         boton.setBackground(
-                                new Color(45, 25, 25)
+                                new Color(253, 238, 238)
                         );
                     }
 
@@ -573,6 +570,64 @@ public class RegistroView extends JFrame {
         );
 
         return boton;
+    }
+
+    private JComboBox<String> crearComboPregunta() {
+
+        JComboBox<String> combo = new JComboBox<>(PREGUNTAS);
+
+        combo.setFont(new Font("Arial", Font.PLAIN, 12));
+        combo.setForeground(BLANCO);
+        combo.setBackground(TARJETA2);
+        combo.setOpaque(true);
+        combo.setFocusable(true);
+        combo.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        combo.setBorder(new RoundedBorder(BORDE, 1, 12));
+        combo.setPreferredSize(new Dimension(350, 46));
+        combo.setMaximumSize(new Dimension(350, 46));
+        combo.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        combo.setUI(new javax.swing.plaf.basic.BasicComboBoxUI() {
+            @Override
+            protected JButton createArrowButton() {
+                JButton flecha = new JButton("\u25BE");
+                flecha.setForeground(ROJO);
+                flecha.setBackground(TARJETA2);
+                flecha.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 14));
+                flecha.setFocusPainted(false);
+                flecha.setContentAreaFilled(false);
+                return flecha;
+            }
+
+            @Override
+            public void paintCurrentValueBackground(Graphics g, Rectangle bounds, boolean hasFocus) {
+                g.setColor(TARJETA2);
+                g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+            }
+        });
+
+        combo.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                    boolean isSelected, boolean cellHasFocus) {
+                JLabel l = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                l.setBorder(BorderFactory.createEmptyBorder(8, 14, 8, 14));
+                l.setBackground(isSelected ? ROJO_OSCURO : TARJETA2);
+                l.setForeground(BLANCO);
+                return l;
+            }
+        });
+
+        return combo;
+    }
+
+    public String getPregunta() {
+        Object p = comboPregunta.getSelectedItem();
+        return p == null ? "" : p.toString();
+    }
+
+    public String getRespuesta() {
+        return txtRespuesta.getText().trim();
     }
 
     public String getUsuario() {
@@ -602,7 +657,7 @@ public class RegistroView extends JFrame {
     public void mostrarMensaje(
             String mensaje) {
 
-        JOptionPane.showMessageDialog(
+        MensajeRentCar.mostrar(
                 this,
                 mensaje,
                 "RentCar",

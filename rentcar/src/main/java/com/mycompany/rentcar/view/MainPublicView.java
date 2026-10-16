@@ -76,14 +76,14 @@ public class MainPublicView extends JFrame {
     // =========================================================
     // COLORES
     // =========================================================
-    private static final Color COLOR_FONDO = new Color(13, 14, 17);
-    private static final Color COLOR_HEADER = new Color(15, 16, 20);
-    private static final Color COLOR_PANEL = new Color(27, 29, 34);
-    private static final Color COLOR_CARD = new Color(28, 29, 34);
-    private static final Color COLOR_CAMPO = new Color(35, 37, 43);
-    private static final Color COLOR_BORDE = new Color(49, 52, 59);
-    private static final Color COLOR_TEXTO = new Color(239, 241, 244);
-    private static final Color COLOR_SECUNDARIO = new Color(151, 156, 166);
+    private static final Color COLOR_FONDO = new Color(242, 244, 248);
+    private static final Color COLOR_HEADER = new Color(255, 255, 255);
+    private static final Color COLOR_PANEL = new Color(238, 241, 246);
+    private static final Color COLOR_CARD = new Color(238, 241, 246);
+    private static final Color COLOR_CAMPO = new Color(230, 234, 241);
+    private static final Color COLOR_BORDE = new Color(211, 217, 226);
+    private static final Color COLOR_TEXTO = new Color(23, 27, 34);
+    private static final Color COLOR_SECUNDARIO = new Color(98, 105, 118);
     private static final Color COLOR_ROJO = new Color(224, 43, 49);
     private static final Color COLOR_ROJO_HOVER = new Color(244, 61, 68);
     private static final Color COLOR_VERDE = new Color(35, 67, 54);
@@ -191,21 +191,16 @@ public class MainPublicView extends JFrame {
 
         try {
             java.net.URL url = getClass().getResource("/images/rentcar_logo.png");
-            if (url != null) {
-                ImageIcon original = new ImageIcon(url);
-                int anchoOriginal = original.getIconWidth();
-                int altoOriginal = original.getIconHeight();
-                double escala = Math.min(200.0 / anchoOriginal, 90.0 / altoOriginal);
-                int ancho = Math.max(1, (int) Math.round(anchoOriginal * escala));
-                int alto = Math.max(1, (int) Math.round(altoOriginal * escala));
-                BufferedImage suavizada = new BufferedImage(ancho, alto, BufferedImage.TYPE_INT_ARGB);
-                Graphics2D g2 = suavizada.createGraphics();
-                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-                g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.drawImage(original.getImage(), 0, 0, ancho, alto, null);
-                g2.dispose();
-                logo.setIcon(new ImageIcon(suavizada));
+            BufferedImage original = TemaRentCar.logoOscuro();
+
+            if (original != null) {
+                // Se quita el margen transparente y se conserva la proporción real
+                original = recortarTransparente(original);
+                double escala = Math.min(200.0 / original.getWidth(), 90.0 / original.getHeight());
+                int ancho = Math.max(1, (int) Math.round(original.getWidth() * escala));
+                int alto = Math.max(1, (int) Math.round(original.getHeight() * escala));
+                // Icono nítido: se redibuja a la resolución real de la pantalla
+                logo.setIcon(new LogoIcon(original, ancho, alto));
             } else {
                 ponerLogoTexto(logo);
             }
@@ -219,7 +214,7 @@ public class MainPublicView extends JFrame {
         logo.setText("<html><div style='text-align:center;'>"
                 + "<font size='6'><b>RentCar.</b></font><br>"
                 + "<font size='2'>ALQUILER DE VEHÍCULOS</font></div></html>");
-        logo.setForeground(Color.WHITE);
+        logo.setForeground(COLOR_TEXTO);
         logo.setFont(new Font("SansSerif", Font.BOLD, 24));
     }
 
@@ -393,7 +388,7 @@ public class MainPublicView extends JFrame {
                 BorderFactory.createEmptyBorder(6, 8, 6, 8)));
 
         JLabel label = new JLabel(titulo);
-        label.setForeground(new Color(205, 211, 221));
+        label.setForeground(new Color(23, 27, 34));
         label.setFont(new Font("SansSerif", Font.PLAIN, 11));
 
         panel.add(label, BorderLayout.NORTH);
@@ -415,8 +410,8 @@ public class MainPublicView extends JFrame {
     // UTILIDADES DE ESTILO Y TEXTO
     // =========================================================
     private void estilizarBarraDesplazamiento(JScrollPane scroll) {
-        Color pista = new Color(17, 19, 24);
-        Color pulgar = new Color(65, 70, 80);
+        Color pista = new Color(255, 255, 255);
+        Color pulgar = new Color(183, 183, 187);
         Color acento = new Color(224, 43, 49);
         for (JScrollBar barra : new JScrollBar[]{scroll.getVerticalScrollBar(), scroll.getHorizontalScrollBar()}) {
             barra.setBackground(pista);
@@ -475,9 +470,9 @@ public class MainPublicView extends JFrame {
     }
 
     private void aplicarTemaMenus() {
-        Color fondo = new Color(27, 29, 34);
-        Color campo = new Color(35, 37, 43);
-        Color texto = new Color(239, 241, 244);
+        Color fondo = new Color(238, 241, 246);
+        Color campo = new Color(230, 234, 241);
+        Color texto = new Color(23, 27, 34);
         Color acento = new Color(224, 43, 49);
         UIManager.put("MenuBar.background", fondo);
         UIManager.put("MenuBar.foreground", texto);
@@ -494,8 +489,8 @@ public class MainPublicView extends JFrame {
         UIManager.put("ComboBox.foreground", texto);
         UIManager.put("List.background", campo);
         UIManager.put("List.foreground", texto);
-        UIManager.put("ScrollBar.thumb", new Color(65, 70, 80));
-        UIManager.put("ScrollBar.track", new Color(17, 19, 24));
+        UIManager.put("ScrollBar.thumb", new Color(183, 183, 187));
+        UIManager.put("ScrollBar.track", new Color(255, 255, 255));
     }
 
     private String[] obtenerLugaresColombia() {
@@ -822,7 +817,7 @@ public class MainPublicView extends JFrame {
                 return super.getForeground();
             }
             if (isSelected()) {
-                return Color.WHITE;
+                return COLOR_TEXTO;
             }
             return getModel().isRollover() ? COLOR_TEXTO : COLOR_SECUNDARIO;
         }
@@ -834,7 +829,7 @@ public class MainPublicView extends JFrame {
             boolean activo = isSelected();
             boolean hover = getModel().isRollover();
             Color fondo = activo ? (hover ? COLOR_ROJO_HOVER : COLOR_ROJO)
-                    : (hover ? new Color(46, 49, 57) : COLOR_CAMPO);
+                    : (hover ? new Color(211, 217, 226) : COLOR_CAMPO);
             g2.setColor(fondo);
             g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
             g2.setColor(activo ? COLOR_ROJO : (hover ? COLOR_SECUNDARIO : COLOR_BORDE));
@@ -985,7 +980,7 @@ public class MainPublicView extends JFrame {
 
             JPanel raiz = new JPanel(new BorderLayout());
             raiz.setBackground(COLOR_PANEL);
-            raiz.setBorder(BorderFactory.createLineBorder(new Color(48, 51, 58)));
+            raiz.setBorder(BorderFactory.createLineBorder(new Color(211, 217, 226)));
             raiz.add(crearBarraDialogo(this, "Seleccionar fecha"), BorderLayout.NORTH);
             raiz.add(principal, BorderLayout.CENTER);
             setContentPane(raiz);
@@ -1285,6 +1280,9 @@ public class MainPublicView extends JFrame {
         });
     }
 
+    // true mientras los vehículos se leen de la base de datos
+    private boolean cargandoVehiculos = false;
+
     private boolean reconstruccionPendiente = false;
 
     // =========================================================
@@ -1300,7 +1298,7 @@ public class MainPublicView extends JFrame {
         int cantidad = tableModel.getRowCount();
 
         if (cantidad == 0) {
-            JLabel vacio = new JLabel("No hay vehículos para mostrar.", SwingConstants.CENTER);
+            JLabel vacio = new JLabel(cargandoVehiculos ? "Cargando vehículos…" : "No hay vehículos para mostrar.", SwingConstants.CENTER);
             vacio.setForeground(COLOR_SECUNDARIO);
             vacio.setFont(new Font("SansSerif", Font.PLAIN, 13));
             panelVehiculos.setLayout(new BorderLayout());
@@ -1358,7 +1356,7 @@ public class MainPublicView extends JFrame {
         // ---------------- IMAGEN ----------------
         JPanel panelImagen = new JPanel();
         panelImagen.setLayout(new OverlayLayout(panelImagen));
-        panelImagen.setBackground(new Color(31, 33, 38));
+        panelImagen.setBackground(new Color(230, 234, 241));
         panelImagen.setPreferredSize(new Dimension(300, 205));
 
         BufferedImage imagenOriginal = cargarImagenOriginal(foto);
@@ -1388,8 +1386,8 @@ public class MainPublicView extends JFrame {
         controlesImagen.add(estadoPanel, BorderLayout.NORTH);
 
         JButton favorito = new JButton("♡");
-        favorito.setForeground(Color.WHITE);
-        favorito.setBackground(new Color(24, 25, 29));
+        favorito.setForeground(COLOR_TEXTO);
+        favorito.setBackground(new Color(238, 241, 246));
         favorito.setFont(new Font("SansSerif", Font.BOLD, 20));
         favorito.setFocusPainted(false);
         favorito.setBorder(BorderFactory.createLineBorder(COLOR_BORDE));
@@ -1404,7 +1402,7 @@ public class MainPublicView extends JFrame {
             if (favoritos.contains(placa)) {
                 favoritos.remove(placa);
                 favorito.setText("♡");
-                favorito.setForeground(Color.WHITE);
+                favorito.setForeground(COLOR_TEXTO);
             } else {
                 favoritos.add(placa);
                 favorito.setText("♥");
@@ -1490,7 +1488,7 @@ public class MainPublicView extends JFrame {
                 "Año  " + valorFila(filaModelo, 6, "—")
                 + "     ·     " + valorFila(filaModelo, 7, "Color no indicado")
                 + "     ·     " + valorFila(filaModelo, 14, "Ubicación no indicada"));
-        datosAdicionales.setForeground(new Color(205, 211, 221));
+        datosAdicionales.setForeground(new Color(23, 27, 34));
         datosAdicionales.setFont(new Font("SansSerif", Font.PLAIN, 15));
         datosAdicionales.setHorizontalAlignment(SwingConstants.CENTER);
         datosAdicionales.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -1573,7 +1571,7 @@ public class MainPublicView extends JFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(new Color(247, 207, 43));
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                g2.setColor(new Color(28, 29, 31));
+                g2.setColor(new Color(238, 241, 246));
                 g2.setStroke(new BasicStroke(1.5f));
                 g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 7, 7);
                 g2.dispose();
@@ -1605,7 +1603,20 @@ public class MainPublicView extends JFrame {
      * marca.
      */
     private JLabel crearLogoMarca(String marca) {
-        JLabel logo = new JLabel();
+        // Los emblemas son blancos: se muestran sobre una ficha oscura para que se vean con luz de día
+        JLabel logo = new JLabel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                if (getIcon() != null) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(new Color(24, 26, 32));
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
+                    g2.dispose();
+                }
+                super.paintComponent(g);
+            }
+        };
         logo.setHorizontalAlignment(SwingConstants.CENTER);
         logo.setVerticalAlignment(SwingConstants.CENTER);
         logo.setPreferredSize(new Dimension(118, 76));
@@ -1634,15 +1645,46 @@ public class MainPublicView extends JFrame {
         nombres.put("yamaha", "yamaha.jpg");
         String archivo = nombres.getOrDefault(clave, clave.replaceAll("[^a-z0-9]+", "") + ".jpg");
 
+        BufferedImage emblema = obtenerEmblemaMarca(archivo);
+        if (emblema != null) {
+            int w = emblema.getWidth(), h = emblema.getHeight();
+            double escala = Math.min(108.0 / Math.max(1, w), 60.0 / Math.max(1, h));
+            int nw = Math.max(1, (int) Math.round(w * escala));
+            int nh = Math.max(1, (int) Math.round(h * escala));
+            logo.setIcon(new LogoIcon(emblema, nw, nh));
+            logo.setText("");
+            return logo;
+        }
+
+        logo.setText(clave.isBlank() ? "?" : clave.substring(0, 1).toUpperCase(Locale.ROOT));
+        logo.setFont(new Font("SansSerif", Font.BOLD, 30));
+        logo.setForeground(COLOR_ROJO);
+        return logo;
+    }
+
+    // =========================================================
+    // LOGOS NÍTIDOS (logo del proyecto y emblemas de marcas)
+    // =========================================================
+
+    // Emblemas ya procesados (fondo transparente + recortados): se calculan una sola vez por marca
+    private static final java.util.Map<String, BufferedImage> CACHE_EMBLEMAS = new java.util.HashMap<>();
+
+    private BufferedImage obtenerEmblemaMarca(String archivo) {
+        if (CACHE_EMBLEMAS.containsKey(archivo)) {
+            return CACHE_EMBLEMAS.get(archivo);
+        }
+
+        BufferedImage resultado = null;
         try {
             java.net.URL recurso = getClass().getResource("/images/marcas/" + archivo);
             if (recurso != null) {
                 BufferedImage original = ImageIO.read(recurso);
                 if (original != null) {
+                    int w = original.getWidth(), h = original.getHeight();
                     // Los logotipos JPG tienen fondo oscuro; se vuelve transparente.
-                    BufferedImage sinFondo = new BufferedImage(original.getWidth(), original.getHeight(), BufferedImage.TYPE_INT_ARGB);
-                    for (int y = 0; y < original.getHeight(); y++) {
-                        for (int x = 0; x < original.getWidth(); x++) {
+                    BufferedImage sinFondo = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+                    for (int y = 0; y < h; y++) {
+                        for (int x = 0; x < w; x++) {
                             int rgb = original.getRGB(x, y);
                             int r = (rgb >> 16) & 0xff, g = (rgb >> 8) & 0xff, b = rgb & 0xff;
                             int brillo = (r + g + b) / 3;
@@ -1650,48 +1692,111 @@ public class MainPublicView extends JFrame {
                             sinFondo.setRGB(x, y, (alpha << 24) | (rgb & 0x00ffffff));
                         }
                     }
-                    int w = sinFondo.getWidth(), h = sinFondo.getHeight();
-                    // Recorta el margen transparente para que el logo ocupe toda su caja.
-                    int minX = w, minY = h, maxX = -1, maxY = -1;
-                    for (int yy = 0; yy < h; yy++) {
-                        for (int xx = 0; xx < w; xx++) {
-                            if (((sinFondo.getRGB(xx, yy) >>> 24) & 0xff) > 40) {
-                                if (xx < minX) {
-                                    minX = xx;
-                                }
-                                if (xx > maxX) {
-                                    maxX = xx;
-                                }
-                                if (yy < minY) {
-                                    minY = yy;
-                                }
-                                if (yy > maxY) {
-                                    maxY = yy;
-                                }
-                            }
-                        }
-                    }
-                    if (maxX > minX && maxY > minY) {
-                        sinFondo = sinFondo.getSubimage(minX, minY, maxX - minX + 1, maxY - minY + 1);
-                        w = sinFondo.getWidth();
-                        h = sinFondo.getHeight();
-                    }
-                    double escala = Math.min(108.0 / Math.max(1, w), 60.0 / Math.max(1, h));
-                    int nw = Math.max(1, (int) Math.round(w * escala));
-                    int nh = Math.max(1, (int) Math.round(h * escala));
-                    Image mini = sinFondo.getScaledInstance(nw, nh, Image.SCALE_SMOOTH);
-                    logo.setIcon(new ImageIcon(mini));
-                    logo.setText("");
-                    return logo;
+                    resultado = recortarTransparente(sinFondo);
                 }
             }
         } catch (Exception ignored) {
         }
 
-        logo.setText(clave.isBlank() ? "?" : clave.substring(0, 1).toUpperCase(Locale.ROOT));
-        logo.setFont(new Font("SansSerif", Font.BOLD, 30));
-        logo.setForeground(COLOR_ROJO);
-        return logo;
+        CACHE_EMBLEMAS.put(archivo, resultado);
+        return resultado;
+    }
+
+    /** Recorta el margen transparente de una imagen. */
+    private static BufferedImage recortarTransparente(BufferedImage origen) {
+        int w = origen.getWidth(), h = origen.getHeight();
+        int minX = w, minY = h, maxX = -1, maxY = -1;
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                if (((origen.getRGB(x, y) >>> 24) & 0xff) > 40) {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+        if (maxX <= minX || maxY <= minY) {
+            return origen;
+        }
+        int cw = maxX - minX + 1, ch = maxY - minY + 1;
+        BufferedImage recorte = new BufferedImage(cw, ch, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = recorte.createGraphics();
+        g2.drawImage(origen, -minX, -minY, null);
+        g2.dispose();
+        return recorte;
+    }
+
+    /** Reduce con calidad: va a la mitad paso a paso y termina con interpolación bicúbica. */
+    private static BufferedImage escalarSuave(BufferedImage origen, int anchoFinal, int altoFinal) {
+        BufferedImage actual = origen;
+        int w = origen.getWidth(), h = origen.getHeight();
+        while (w / 2 >= anchoFinal && h / 2 >= altoFinal) {
+            w /= 2;
+            h /= 2;
+            actual = redimensionar(actual, w, h);
+        }
+        return redimensionar(actual, anchoFinal, altoFinal);
+    }
+
+    private static BufferedImage redimensionar(BufferedImage origen, int ancho, int alto) {
+        BufferedImage destino = new BufferedImage(Math.max(1, ancho), Math.max(1, alto), BufferedImage.TYPE_INT_ARGB_PRE);
+        Graphics2D g2 = destino.createGraphics();
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.drawImage(origen, 0, 0, destino.getWidth(), destino.getHeight(), null);
+        g2.dispose();
+        return destino;
+    }
+
+    /**
+     * Icono que se dibuja a la resolución real de la pantalla (también con
+     * escala de Windows 125 %, 150 %...), por eso no se ve pixelado.
+     */
+    private static class LogoIcon implements Icon {
+
+        private final BufferedImage origen;
+        private final int ancho, alto;
+        private BufferedImage cache;
+        private int cacheW = -1, cacheH = -1;
+
+        LogoIcon(BufferedImage origen, int ancho, int alto) {
+            this.origen = origen;
+            this.ancho = ancho;
+            this.alto = alto;
+        }
+
+        @Override
+        public int getIconWidth() {
+            return ancho;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return alto;
+        }
+
+        @Override
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            java.awt.geom.AffineTransform t = g2.getTransform();
+            double sx = t.getScaleX() > 0 ? t.getScaleX() : 1;
+            double sy = t.getScaleY() > 0 ? t.getScaleY() : 1;
+
+            int pw = Math.max(1, (int) Math.round(ancho * sx));
+            int ph = Math.max(1, (int) Math.round(alto * sy));
+
+            if (cache == null || cacheW != pw || cacheH != ph) {
+                cache = escalarSuave(origen, pw, ph);
+                cacheW = pw;
+                cacheH = ph;
+            }
+
+            g2.scale(1.0 / sx, 1.0 / sy);
+            g2.drawImage(cache, (int) Math.round(x * sx), (int) Math.round(y * sy), null);
+            g2.dispose();
+        }
     }
 
     // =========================================================
@@ -1788,13 +1893,18 @@ public class MainPublicView extends JFrame {
 
         private final BufferedImage imagen;
 
+        // Foto ya escalada al tamaño actual: no se vuelve a escalar en cada repintado
+        private BufferedImage escalada;
+        private int escaladaAncho = -1;
+        private int escaladaAlto = -1;
+
         public ImagenCoverLabel(BufferedImage imagen) {
             this.imagen = imagen;
             setHorizontalAlignment(SwingConstants.CENTER);
             setVerticalAlignment(SwingConstants.CENTER);
             setOpaque(true);
             setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
-            setBackground(new Color(31, 33, 38));
+            setBackground(new Color(230, 234, 241));
         }
 
         @Override
@@ -1802,7 +1912,7 @@ public class MainPublicView extends JFrame {
             super.paintComponent(g);
 
             if (imagen == null) {
-                g.setColor(new Color(151, 156, 166));
+                g.setColor(new Color(98, 105, 118));
                 g.setFont(new Font("SansSerif", Font.BOLD, 12));
                 String texto = "SIN FOTO";
                 FontMetrics fm = g.getFontMetrics();
@@ -1824,12 +1934,24 @@ public class MainPublicView extends JFrame {
             int x = (ancho - nuevoAncho) / 2;
             int y = (alto - nuevoAlto) / 2;
 
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-            g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.drawImage(imagen, x, y, nuevoAncho, nuevoAlto, null);
-            g2.dispose();
+            // El escalado de calidad es costoso: se hace una vez por tamaño y se guarda
+            if (escalada == null || escaladaAncho != ancho || escaladaAlto != alto) {
+
+                BufferedImage nueva = new BufferedImage(ancho, alto, BufferedImage.TYPE_INT_RGB);
+                Graphics2D gi = nueva.createGraphics();
+                gi.setColor(getBackground());
+                gi.fillRect(0, 0, ancho, alto);
+                gi.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                gi.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                gi.drawImage(imagen, x, y, nuevoAncho, nuevoAlto, null);
+                gi.dispose();
+
+                escalada = nueva;
+                escaladaAncho = ancho;
+                escaladaAlto = alto;
+            }
+
+            g.drawImage(escalada, 0, 0, null);
         }
     }
 
@@ -1874,7 +1996,7 @@ public class MainPublicView extends JFrame {
     // =========================================================
     private JLabel crearCaracteristica(String texto) {
         JLabel label = new JLabel(texto);
-        label.setForeground(new Color(240, 243, 248));
+        label.setForeground(new Color(23, 27, 34));
         label.setFont(new Font("SansSerif", Font.BOLD, 14));
         label.setHorizontalAlignment(SwingConstants.CENTER);
         label.setToolTipText(texto);
@@ -1965,7 +2087,7 @@ public class MainPublicView extends JFrame {
 
         JPanel raiz = new JPanel(new BorderLayout());
         raiz.setBackground(COLOR_PANEL);
-        raiz.setBorder(BorderFactory.createLineBorder(new Color(48, 51, 58)));
+        raiz.setBorder(BorderFactory.createLineBorder(new Color(211, 217, 226)));
 
         raiz.add(crearBarraDialogo(dialog, "Detalles del vehículo"), BorderLayout.NORTH);
 
@@ -1982,7 +2104,7 @@ public class MainPublicView extends JFrame {
 
         JPanel panelFoto = new JPanel();
         panelFoto.setLayout(new OverlayLayout(panelFoto));
-        panelFoto.setBackground(new Color(31, 33, 38));
+        panelFoto.setBackground(new Color(230, 234, 241));
 
         // Estado encima de la foto (se agrega primero para quedar arriba)
         JLabel estado = new JLabel(disponible ? "● Disponible" : "● No disponible");
@@ -2184,7 +2306,7 @@ public class MainPublicView extends JFrame {
     /** Barra superior idéntica a la de las demás ventanas (RENTCAR · título + botón cerrar). */
     private JPanel crearBarraDialogo(JDialog dialog, String tituloVentana) {
 
-        Color fondo = new Color(12, 14, 18);
+        Color fondo = new Color(242, 244, 248);
 
         JPanel barra = new JPanel(new BorderLayout());
         barra.setBackground(fondo);
@@ -2192,7 +2314,7 @@ public class MainPublicView extends JFrame {
         barra.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, COLOR_ROJO));
 
         JLabel titulo = new JLabel("  RENTCAR  ·  " + tituloVentana);
-        titulo.setForeground(new Color(242, 243, 245));
+        titulo.setForeground(new Color(23, 27, 34));
         titulo.setFont(new Font("SansSerif", Font.BOLD, 12));
         titulo.setBorder(new EmptyBorder(0, 7, 0, 0));
         barra.add(titulo, BorderLayout.CENTER);
@@ -2204,7 +2326,7 @@ public class MainPublicView extends JFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(COLOR_ROJO);
                 g2.fillRect(0, 0, getWidth(), getHeight());
-                g2.setColor(new Color(242, 243, 245));
+                g2.setColor(new Color(23, 27, 34));
                 g2.setStroke(new BasicStroke(1.7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                 int cx = getWidth() / 2;
                 int cy = getHeight() / 2;
@@ -2465,7 +2587,7 @@ public class MainPublicView extends JFrame {
 
         JPanel raiz = new JPanel(new BorderLayout());
         raiz.setBackground(COLOR_PANEL);
-        raiz.setBorder(BorderFactory.createLineBorder(new Color(48, 51, 58)));
+        raiz.setBorder(BorderFactory.createLineBorder(new Color(211, 217, 226)));
         raiz.add(crearBarraDialogo(dialog, titulo), BorderLayout.NORTH);
         raiz.add(cuerpo, BorderLayout.CENTER);
 
@@ -2838,7 +2960,7 @@ public class MainPublicView extends JFrame {
 
         JPanel raiz = new JPanel(new BorderLayout());
         raiz.setBackground(COLOR_PANEL);
-        raiz.setBorder(BorderFactory.createLineBorder(new Color(48, 51, 58)));
+        raiz.setBorder(BorderFactory.createLineBorder(new Color(211, 217, 226)));
 
         raiz.add(crearBarraDialogo(dialog, "Ayuda"), BorderLayout.NORTH);
 
@@ -3002,6 +3124,25 @@ public class MainPublicView extends JFrame {
     // =========================================================
     // GETTERS
     // =========================================================
+    // El presenter avisa cuando empieza y termina la lectura de la base de datos
+    public void setCargando(boolean cargando) {
+
+        if (this.cargandoVehiculos == cargando) {
+            return;
+        }
+
+        this.cargandoVehiculos = cargando;
+
+        setCursor(cargando
+                ? Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR)
+                : Cursor.getDefaultCursor());
+
+        // Si no hay tarjetas, muestra/oculta el mensaje "Cargando vehículos…"
+        if (tableModel.getRowCount() == 0) {
+            actualizarTarjetas();
+        }
+    }
+
     public JComboBox<MarcaItem> getComboMarcas() {
         return comboMarcas;
     }

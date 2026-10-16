@@ -3,6 +3,7 @@ package com.mycompany.rentcar.presenter;
 import com.mycompany.rentcar.model.Usuario;
 import com.mycompany.rentcar.model.Vehiculo;
 import com.mycompany.rentcar.model.VehiculoDAO;
+import com.mycompany.rentcar.view.MensajeRentCar;
 import com.mycompany.rentcar.view.VehiculoView;
 
 import javax.swing.JOptionPane;
@@ -24,18 +25,14 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.List;
 
-// [ABSTRACCIÓN Y MVP]: Esta clase actúa como el Presentador en el patrón MVP. 
-// Aísla la lógica de negocio y la comunicación entre la vista (VehiculoView) y la base de datos (VehiculoDAO).
 public class VehiculoPresenter {
 
-    // [ENCAPSULAMIENTO]: Atributos privados para proteger la instancia de la vista, 
-    // el modelo DAO, la sesión del usuario y el estado de edición.
     private VehiculoView view;
     private VehiculoDAO dao;
     private Usuario usuarioLogueado;
     private String placaEditando = null;
 
-    // [POLIMORFISMO DE SOBRECARGA / OVERLOADING]: Constructor 1 que inicializa el presentador por defecto.
+    // Constructor normal
     public VehiculoPresenter(VehiculoView view) {
         this.view = view;
         this.dao = new VehiculoDAO();
@@ -43,7 +40,7 @@ public class VehiculoPresenter {
         initPresenter();
     }
 
-    // [POLIMORFISMO DE SOBRECARGA / OVERLOADING]: Constructor 2 que recibe la sesión de un usuario para gestionar permisos.
+    // Constructor con usuario
     public VehiculoPresenter(VehiculoView view, Usuario usuario) {
         this.view = view;
         this.dao = new VehiculoDAO();
@@ -57,7 +54,6 @@ public class VehiculoPresenter {
     // INICIALIZAR PRESENTER
     // =========================================================
 
-    // [ABSTRACCIÓN]: Configura los Listeners de la vista sin exponer los detalles de implementación interna.
     private void initPresenter() {
 
         view.getBtnGuardar().addActionListener(e -> registrarVehiculo());
@@ -73,7 +69,6 @@ public class VehiculoPresenter {
 
     private void registrarVehiculo() {
 
-        // [ENCAPSULAMIENTO]: Acceso a los datos del formulario de la vista mediante métodos Getters.
         String placa = view.getPlaca();
         String marca = view.getMarca();
         String modelo = view.getModelo();
@@ -88,7 +83,7 @@ public class VehiculoPresenter {
 
         // Validar placa
         if (placa == null || placa.trim().isEmpty()) {
-            JOptionPane.showMessageDialog(
+            MensajeRentCar.mostrar(
                     view,
                     "Ingrese la placa del vehículo.",
                     "Campo obligatorio",
@@ -99,7 +94,7 @@ public class VehiculoPresenter {
 
         // Validar marca
         if (marca == null || marca.trim().isEmpty()) {
-            JOptionPane.showMessageDialog(
+            MensajeRentCar.mostrar(
                     view,
                     "Seleccione o ingrese una marca.",
                     "Campo obligatorio",
@@ -110,7 +105,7 @@ public class VehiculoPresenter {
 
         // Validar modelo
         if (modelo == null || modelo.trim().isEmpty()) {
-            JOptionPane.showMessageDialog(
+            MensajeRentCar.mostrar(
                     view,
                     "Ingrese el modelo del vehículo.",
                     "Campo obligatorio",
@@ -121,7 +116,7 @@ public class VehiculoPresenter {
 
         // Validar precio
         if (precio <= 0) {
-            JOptionPane.showMessageDialog(
+            MensajeRentCar.mostrar(
                     view,
                     "Ingrese un precio válido mayor a 0.",
                     "Precio inválido",
@@ -130,11 +125,11 @@ public class VehiculoPresenter {
             return;
         }
 
-        // [ABSTRACCIÓN]: Llama al DAO para verificar la existencia del vehículo sin conocer la consulta SQL subyacente.
+        // Al registrar, la placa debe ser nueva. En modo edición se conserva la placa seleccionada.
         Vehiculo existente = dao.buscarPorPlaca(placa);
 
         if (placaEditando == null && existente != null) {
-            JOptionPane.showMessageDialog(
+            MensajeRentCar.mostrar(
                     view,
                     "Ya existe un vehículo registrado con la placa: " + placa,
                     "Vehículo existente",
@@ -143,7 +138,7 @@ public class VehiculoPresenter {
             return;
         }
 
-        // [ENCAPSULAMIENTO]: Instanciación del modelo Vehiculo y asignación de atributos mediante Setters.
+        // Crear vehículo
         Vehiculo vehiculo = new Vehiculo();
 
         vehiculo.setPlaca(placa);
@@ -168,11 +163,11 @@ public class VehiculoPresenter {
 
         if (vehiculo.getAnio() < 1886 || vehiculo.getCapacidad() < 1 || vehiculo.getKilometraje() < 0
                 || (!vehiculo.getTipo().equalsIgnoreCase("MOTO") && vehiculo.getPuertas() < 1)) {
-            JOptionPane.showMessageDialog(view, "Revisa el año, la capacidad, el kilometraje y el número de puertas: deben tener valores válidos.", "Datos inválidos", JOptionPane.WARNING_MESSAGE);
+            MensajeRentCar.mostrar(view, "Revisa el año, la capacidad, el kilometraje y el número de puertas: deben tener valores válidos.", "Datos inválidos", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // [ABSTRACCIÓN Y ENCAPSULAMIENTO]: Inserta o actualiza en la base de datos de manera transparente.
+        // Insertar o actualizar el vehículo en la base de datos.
         boolean editando = placaEditando != null;
         boolean registrado = editando ? dao.actualizar(vehiculo) : dao.insertar(vehiculo);
 
@@ -188,7 +183,7 @@ public class VehiculoPresenter {
 
         } else {
 
-            JOptionPane.showMessageDialog(
+            MensajeRentCar.mostrar(
                     view,
                     "No se pudo registrar el vehículo.",
                     "Error",
@@ -198,14 +193,13 @@ public class VehiculoPresenter {
     }
 
     /** Ventana de validación personalizada con el estilo oscuro/rojo de RentCar. */
-    // [ABSTRACCIÓN]: Aísla la construcción e inicialización del diálogo gráfico de alerta.
     private void mostrarCamposIncompletos(String camposFaltantes) {
-        final Color fondo = new Color(13, 15, 19);
-        final Color panel = new Color(23, 26, 32);
-        final Color borde = new Color(55, 61, 72);
+        final Color fondo = new Color(242, 244, 248);
+        final Color panel = new Color(238, 241, 246);
+        final Color borde = new Color(211, 217, 226);
         final Color rojo = new Color(225, 6, 0);
-        final Color texto = new Color(245, 247, 250);
-        final Color gris = new Color(177, 183, 194);
+        final Color texto = new Color(23, 27, 34);
+        final Color gris = new Color(98, 105, 118);
 
         Window owner = SwingUtilities.getWindowAncestor(view);
         JDialog dialogo = new JDialog(owner, "Formulario incompleto", JDialog.ModalityType.APPLICATION_MODAL);
@@ -276,9 +270,6 @@ public class VehiculoPresenter {
         entendido.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         entendido.setPreferredSize(new Dimension(125, 39));
         entendido.addActionListener(e -> dialogo.dispose());
-
-        // [HERENCIA Y POLIMORFISMO DE SOBRESCRITURA / OVERRIDING]:
-        // Se crea una subclase anónima de MouseAdapter redefiniendo los eventos visuales del botón.
         entendido.addMouseListener(new MouseAdapter() {
             @Override public void mouseEntered(MouseEvent e) { entendido.setBackground(new Color(255, 42, 35)); }
             @Override public void mouseExited(MouseEvent e) { entendido.setBackground(rojo); }
@@ -299,13 +290,13 @@ public class VehiculoPresenter {
     private void prepararModificacion() {
         String placa = view.getPlacaSeleccionada();
         if (placa == null || placa.isBlank()) {
-            JOptionPane.showMessageDialog(view, "Selecciona primero un vehículo de la tabla.",
+            MensajeRentCar.mostrar(view, "Selecciona primero un vehículo de la tabla.",
                     "Vehículo no seleccionado", JOptionPane.WARNING_MESSAGE);
             return;
         }
         Vehiculo vehiculo = dao.buscarPorPlaca(placa);
         if (vehiculo == null) {
-            JOptionPane.showMessageDialog(view, "No se encontró el vehículo seleccionado.",
+            MensajeRentCar.mostrar(view, "No se encontró el vehículo seleccionado.",
                     "Vehículo no encontrado", JOptionPane.WARNING_MESSAGE);
             cargarVehiculos();
             return;
@@ -318,25 +309,63 @@ public class VehiculoPresenter {
     // CARGAR VEHÍCULOS EN LA TABLA
     // =========================================================
 
+    // Número de la última carga pedida (ignora respuestas atrasadas)
+    private int cargaVersion = 0;
+
     private void cargarVehiculos() {
 
-        try {
+        final int version = ++cargaVersion;
 
-            // [ABSTRACCIÓN]: Obtiene la lista de vehículos desde la base de datos sin acoplar la consulta SQL a la interfaz.
-            List<Vehiculo> vehiculos = dao.listar();
+        // La consulta corre en segundo plano para no congelar la ventana
+        new javax.swing.SwingWorker<List<Vehiculo>, Void>() {
+
+            @Override
+            protected List<Vehiculo> doInBackground() {
+                return dao.listar();
+            }
+
+            @Override
+            protected void done() {
+
+                if (version != cargaVersion) {
+                    return;
+                }
+
+                try {
+                    poblarTabla(get());
+                } catch (Exception e) {
+                    System.out.println("Error al cargar los vehículos: " + e.getMessage());
+                }
+            }
+        }.execute();
+    }
+
+    private void poblarTabla(List<Vehiculo> vehiculos) {
+
+        try {
 
             view.getModeloTabla().setRowCount(0);
 
             for (Vehiculo vehiculo : vehiculos) {
 
-                // [ENCAPSULAMIENTO]: Lectura de las propiedades del objeto Vehiculo mediante sus Getters.
                 view.getModeloTabla().addRow(
                         new Object[]{
                             vehiculo.getFoto(),          // FOTO
                             vehiculo.getPlaca(),         // PLACA
                             vehiculo.getMarca(),         // MARCA
                             vehiculo.getModelo(),        // MODELO
-                            vehiculo.getPrecioPorDia()   // PRECIO
+                            vehiculo.getPrecioPorDia(),  // PRECIO
+                            vehiculo.getTipo(),
+                            vehiculo.getAnio(),
+                            vehiculo.getColor(),
+                            vehiculo.getTransmision(),
+                            vehiculo.getCombustible(),
+                            vehiculo.getCapacidad(),
+                            vehiculo.getPuertas(),
+                            vehiculo.getKilometraje(),
+                            vehiculo.getCategoria(),
+                            vehiculo.getCiudad(),
+                            vehiculo.isDisponible()
                         }
                 );
             }
@@ -350,7 +379,7 @@ public class VehiculoPresenter {
 
             e.printStackTrace();
 
-            JOptionPane.showMessageDialog(
+            MensajeRentCar.mostrar(
                     view,
                     "Ocurrió un error al cargar los vehículos.",
                     "Error",
@@ -370,7 +399,7 @@ public class VehiculoPresenter {
         // Verificar que haya un vehículo seleccionado
         if (placa == null || placa.trim().isEmpty()) {
 
-            JOptionPane.showMessageDialog(
+            MensajeRentCar.mostrar(
                     view,
                     "Seleccione un vehículo de la tabla.",
                     "Vehículo no seleccionado",
@@ -385,7 +414,7 @@ public class VehiculoPresenter {
             return;
         }
 
-        // [ABSTRACCIÓN]: Ejecuta la eliminación en cascada desde la base de datos delegando la tarea al DAO.
+        // Eliminar de la base de datos
         boolean eliminado = dao.eliminar(placa);
 
         if (eliminado) {
@@ -400,7 +429,7 @@ public class VehiculoPresenter {
 
         } else {
 
-            JOptionPane.showMessageDialog(
+            MensajeRentCar.mostrar(
                     view,
                     "No se pudo eliminar el vehículo.",
                     "Error",
@@ -415,11 +444,11 @@ public class VehiculoPresenter {
      * Devuelve true únicamente si el usuario pulsa el botón Eliminar.
      */
     private boolean confirmarEliminacion(String placa) {
-        final Color fondo = new Color(11, 13, 17);
-        final Color panel = new Color(20, 23, 28);
-        final Color borde = new Color(48, 53, 62);
-        final Color texto = new Color(240, 242, 245);
-        final Color gris = new Color(156, 163, 175);
+        final Color fondo = new Color(242, 244, 248);
+        final Color panel = new Color(255, 255, 255);
+        final Color borde = new Color(211, 217, 226);
+        final Color texto = new Color(23, 27, 34);
+        final Color gris = new Color(98, 105, 118);
         final Color rojo = new Color(225, 6, 0);
         final Color rojoHover = new Color(255, 45, 38);
 
@@ -448,8 +477,6 @@ public class VehiculoPresenter {
         cerrar.setFont(new Font("SansSerif", Font.BOLD, 24));
         cerrar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         cerrar.setPreferredSize(new Dimension(28, 25));
-
-        // [HERENCIA Y POLIMORFISMO DE SOBRESCRITURA / OVERRIDING]: Sobrescribe eventos de escucha del ratón.
         cerrar.addMouseListener(new MouseAdapter() {
             @Override public void mouseClicked(MouseEvent e) { dialogo.dispose(); }
             @Override public void mouseEntered(MouseEvent e) { cerrar.setForeground(new Color(255, 220, 220)); }
@@ -471,7 +498,7 @@ public class VehiculoPresenter {
         detalle.setBackground(panel);
         detalle.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
         JLabel placaLabel = new JLabel("PLACA  " + placa);
-        placaLabel.setForeground(new Color(255, 205, 0));
+        placaLabel.setForeground(new Color(176, 118, 0));
         placaLabel.setFont(new Font("SansSerif", Font.BOLD, 15));
         detalle.add(placaLabel, BorderLayout.NORTH);
         JLabel aviso = new JLabel("Esta acción no se puede deshacer.");
@@ -484,7 +511,7 @@ public class VehiculoPresenter {
         acciones.setBackground(panel);
         acciones.setBorder(BorderFactory.createEmptyBorder(8, 24, 20, 24));
 
-        JButton cancelar = crearBotonConfirmacion("Cancelar", new Color(38, 43, 51), new Color(55, 60, 70), texto);
+        JButton cancelar = crearBotonConfirmacion("Cancelar", new Color(230, 234, 241), new Color(211, 217, 226), texto);
         JButton eliminar = crearBotonConfirmacion("Eliminar vehículo", rojo, rojoHover, Color.WHITE);
         cancelar.addActionListener(e -> dialogo.dispose());
         eliminar.addActionListener(e -> {
@@ -518,8 +545,6 @@ public class VehiculoPresenter {
         boton.setBorderPainted(false);
         boton.setBorder(BorderFactory.createEmptyBorder(11, 17, 11, 17));
         boton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        
-        // [HERENCIA Y POLIMORFISMO DE SOBRESCRITURA / OVERRIDING]: Sobrescribe eventos de hover para el botón.
         boton.addMouseListener(new MouseAdapter() {
             @Override public void mouseEntered(MouseEvent e) { boton.setBackground(hover); }
             @Override public void mouseExited(MouseEvent e) { boton.setBackground(normal); }
@@ -535,7 +560,6 @@ public class VehiculoPresenter {
 
         if (usuarioLogueado != null) {
 
-            // [ENCAPSULAMIENTO]: Consulta el estado o rol del usuario mediante el método esAdmin().
             if (usuarioLogueado.esAdmin()) {
 
                 System.out.println(

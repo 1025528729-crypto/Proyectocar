@@ -5,12 +5,25 @@ import com.mycompany.rentcar.model.VehiculoDAO;
 import com.mycompany.rentcar.view.LoginView;
 import com.mycompany.rentcar.view.MainPublicView;
 
+import javax.swing.SwingWorker;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.TreeMap;
 
 public class MainPublicPresenter {
 
     private MainPublicView view;
     private VehiculoDAO vehiculoDAO;
+
+    // Copia en memoria de los vehículos: filtrar por marca ya no consulta la base de datos
+    private List<Vehiculo> vehiculos = new ArrayList<>();
+
+    // Evita que un resultado viejo pise a uno más reciente
+    private int cargaActual = 0;
+
+    // Evita que el combo de marcas dispare el filtro mientras se llena
+    private boolean llenandoMarcas = false;
 
     // =========================================================
     // CONSTRUCTOR
@@ -19,9 +32,19 @@ public class MainPublicPresenter {
     public MainPublicPresenter(MainPublicView view) {
 
         this.view = view;
-        this.vehiculoDAO = new VehiculoDAO();
 
         initPresenter();
+    }
+
+    // El DAO se crea la primera vez que hace falta (y en segundo plano):
+    // así la ventana aparece enseguida aunque la base de datos tarde.
+    private synchronized VehiculoDAO dao() {
+
+        if (vehiculoDAO == null) {
+            vehiculoDAO = new VehiculoDAO();
+        }
+
+        return vehiculoDAO;
     }
 
     // =========================================================
@@ -30,9 +53,8 @@ public class MainPublicPresenter {
 
     private void initPresenter() {
 
-        cargarMarcas();
-
-        cargarTodosLosVehiculos();
+        // Desde el inicio el combo ya tiene la opción "Todas las marcas"
+        llenarMarcas(new ArrayList<>());
 
         // Filtro por marca
         view.getComboMarcas()
@@ -40,7 +62,7 @@ public class MainPublicPresenter {
                         e -> filtrarPorMarca()
                 );
 
-        // Mostrar todos
+        // Mostrar todos (vuelve a leer la base de datos)
         view.getBtnVerTodos()
                 .addActionListener(
                         e -> cargarTodosLosVehiculos()
@@ -51,86 +73,141 @@ public class MainPublicPresenter {
                 .addActionListener(
                         e -> abrirLogin()
                 );
+
+        cargarTodosLosVehiculos();
     }
 
     // =========================================================
-    // CARGAR MARCAS
-    // =========================================================
-
-    private void cargarMarcas() {
-
-        view.getComboMarcas()
-                .removeAllItems();
-
-        List<MarcaItem> marcas =
-                vehiculoDAO.obtenerMarcas();
-
-        // Opción explícita para no dejar un filtro de marca activo por defecto.
-        view.getComboMarcas().addItem(new MarcaItem(0, "Todas las marcas", ""));
-
-        for (MarcaItem marca : marcas) {
-
-            view.getComboMarcas()
-                    .addItem(marca);
-        }
-    }
-
-    // =========================================================
-    // CARGAR TODOS LOS VEHÍCULOS
+    // CARGAR TODOS LOS VEHÍCULOS (segundo plano)
     // =========================================================
 
     private void cargarTodosLosVehiculos() {
 
-        view.getTableModel()
-                .setRowCount(0);
+        final int carga = ++cargaActual;
 
-        List<Vehiculo> lista =
-                vehiculoDAO.listar();
+        view.setCargando(true);
 
-        for (Vehiculo v : lista) {
+        new SwingWorker<List<Vehiculo>, Void>() {
 
-            view.getTableModel()
-                    .addRow(
-                            new Object[]{
-                                v.getFoto(),
-                                v.getPlaca(),
-                                v.getMarca(),
-                                v.getModelo(), v.getPrecioPorDia(), v.getTipo(), v.getAnio(), v.getColor(),
-                                v.getTransmision(), v.getCombustible(), v.getCapacidad(), v.getKilometraje(),
-                                v.getCategoria(), v.getDescripcion(), v.getCiudad(), v.isDisponible(), v.getPuertas()
-                            }
-                    );
+            @Override
+            protected List<Vehiculo> doInBackground() {
+                return dao().listar();
+            }
+
+            @Override
+            protected void done() {
+
+                if (carga != cargaActual) {
+                    return; // llegó una carga más reciente
+                }
+
+                try {
+                    vehiculos = get();
+                } catch (Exception e) {
+                    System.err.println("Error al cargar los vehículos: " + e.getMessage());
+                    vehiculos = new ArrayList<>();
+                }
+
+                // Las marcas salen de la misma lista (antes era otra consulta)
+                llenarMarcas(vehiculos);
+
+                mostrarSegunMarca();
+
+                view.setCargando(false);
+            }
+        }.execute();
+    }
+
+    // =========================================================
+    // MARCAS
+    // =========================================================
+
+    private void llenarMarcas(List<Vehiculo> lista) {
+
+        String seleccionada = null;
+        Object actual = view.getComboMarcas().getSelectedItem();
+
+        if (actual != null) {
+            seleccionada = actual.toString();
+        }
+
+        llenandoMarcas = true;
+
+        try {
+
+            view.getComboMarcas().removeAllItems();
+
+            // Opción explícita para no dejar un filtro de marca activo por defecto.
+            view.getComboMarcas().addItem(new MarcaItem(0, "Todas las marcas", ""));
+
+            // Marcas distintas, ordenadas sin distinguir mayúsculas
+            TreeMap<String, String> distintas = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+
+            for (Vehiculo v : lista) {
+                if (v.getMarca() != null && !v.getMarca().isBlank()) {
+                    distintas.putIfAbsent(v.getMarca(), v.getMarca());
+                }
+            }
+
+            int id = 1;
+
+            for (String marca : distintas.values()) {
+
+                MarcaItem item = new MarcaItem(
+                        id++,
+                        marca,
+                        marca.toLowerCase(Locale.ROOT).trim() + ".jpg"
+                );
+
+                view.getComboMarcas().addItem(item);
+
+                if (marca.equalsIgnoreCase(seleccionada)) {
+                    view.getComboMarcas().setSelectedItem(item);
+                }
+            }
+
+        } finally {
+
+            llenandoMarcas = false;
         }
     }
 
     // =========================================================
-    // FILTRAR POR MARCA
+    // FILTRAR POR MARCA (en memoria, sin consultar la base de datos)
     // =========================================================
 
     private void filtrarPorMarca() {
+
+        if (llenandoMarcas) {
+            return;
+        }
+
+        mostrarSegunMarca();
+    }
+
+    private void mostrarSegunMarca() {
 
         MarcaItem seleccion =
                 (MarcaItem)
                         view.getComboMarcas()
                                 .getSelectedItem();
 
-        if (seleccion == null) {
-            return;
-        }
-        if (seleccion.getId() == 0 || "Todas las marcas".equalsIgnoreCase(seleccion.getNombre())) {
-            cargarTodosLosVehiculos();
-            return;
+        List<Vehiculo> aMostrar = new ArrayList<>();
+
+        boolean todas = seleccion == null
+                || seleccion.getId() == 0
+                || "Todas las marcas".equalsIgnoreCase(seleccion.getNombre());
+
+        for (Vehiculo v : vehiculos) {
+            if (todas || seleccion.getNombre().equalsIgnoreCase(v.getMarca())) {
+                aMostrar.add(v);
+            }
         }
 
         view.getTableModel()
                 .setRowCount(0);
 
-        List<Vehiculo> lista =
-                vehiculoDAO.listarPorMarca(
-                        seleccion.getNombre()
-                );
-
-        for (Vehiculo v : lista) {
+        for (Vehiculo v : aMostrar) {
 
             view.getTableModel()
                     .addRow(
@@ -150,17 +227,26 @@ public class MainPublicPresenter {
     // ABRIR LOGIN
     // =========================================================
 
+    private LoginView loginAbierto;
+
     private void abrirLogin() {
 
-        view.dispose();
+        // El catálogo se mantiene abierto; si el login ya está abierto solo se trae al frente
+        if (loginAbierto != null && loginAbierto.isDisplayable()) {
+            loginAbierto.toFront();
+            loginAbierto.requestFocus();
+            return;
+        }
 
-        LoginView loginView =
-                new LoginView();
+        loginAbierto = new LoginView();
 
-        new LoginPresenter(
-                loginView
-        );
+        // Cerrar el login ya no cierra todo el programa
+        loginAbierto.setDefaultCloseOperation(javax.swing.JFrame.DISPOSE_ON_CLOSE);
 
-        loginView.setVisible(true);
+        // El catálogo solo se cierra cuando el inicio de sesión es exitoso
+        new LoginPresenter(loginAbierto, view::dispose);
+
+        loginAbierto.setLocationRelativeTo(view);
+        loginAbierto.setVisible(true);
     }
 }

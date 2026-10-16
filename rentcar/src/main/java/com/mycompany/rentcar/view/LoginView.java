@@ -14,33 +14,36 @@ public class LoginView extends JFrame {
     private JPasswordField txtPassword;
     private JButton btnIngresar;
     private JButton btnRegistrarse;
+    private JButton btnOlvide;
 
     private Font orbitronRegular;
     private Font orbitronBold;
 
-    private final Color FONDO = new Color(10, 10, 12);
-    private final Color TARJETA = new Color(22, 22, 26);
-    private final Color TARJETA2 = new Color(28, 28, 33);
+    private final Color FONDO = new Color(242, 244, 248);
+    private final Color TARJETA = new Color(255, 255, 255);
+    private final Color TARJETA2 = new Color(238, 241, 246);
     private final Color ROJO = new Color(220, 38, 38);
     private final Color ROJO_OSCURO = new Color(150, 25, 25);
-    private final Color BLANCO = new Color(245, 245, 245);
-    private final Color GRIS = new Color(165, 165, 170);
-    private final Color BORDE = new Color(55, 55, 62);
+    private final Color BLANCO = new Color(23, 27, 34);
+    private final Color GRIS = new Color(98, 105, 118);
+    private final Color BORDE = new Color(211, 217, 226);
 
     public LoginView() {
 
         cargarFuentes();
 
         setTitle("RentCar - Acceso al Sistema");
-        setSize(560, 800);
-        setMinimumSize(new Dimension(500, 740));
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLocationRelativeTo(null);
 
-        getContentPane().setBackground(FONDO);
+        getContentPane().setBackground(TARJETA);
 
         construirInterfaz();
         VentanaRentCar.instalar(this);
+
+        // La ventana se ajusta exactamente al tamaño del formulario.
+        pack();
+        setMinimumSize(getSize());
+        setLocationRelativeTo(null);
 
         getRootPane().setDefaultButton(btnIngresar);
     }
@@ -84,18 +87,15 @@ public class LoginView extends JFrame {
 
     private void construirInterfaz() {
 
+        // Fondo único de toda la ventana (sin recuadro interno).
+        // El formulario va centrado y la ventana se ajusta a su tamaño.
         JPanel fondo = new JPanel(new GridBagLayout());
-        fondo.setBackground(FONDO);
+        fondo.setBackground(TARJETA);
 
         JPanel tarjeta = new JPanel();
         tarjeta.setLayout(new BoxLayout(tarjeta, BoxLayout.Y_AXIS));
-        tarjeta.setBackground(TARJETA);
-        tarjeta.setBorder(new RoundedBorder(BORDE, 1, 28));
-
-        Dimension tamañoTarjeta = new Dimension(430, 660);
-        tarjeta.setPreferredSize(tamañoTarjeta);
-        tarjeta.setMinimumSize(tamañoTarjeta);
-        tarjeta.setMaximumSize(tamañoTarjeta);
+        tarjeta.setOpaque(false);
+        tarjeta.setBorder(BorderFactory.createEmptyBorder(26, 45, 34, 45));
 
         // LOGO
         JLabel logo = crearLogo();
@@ -115,7 +115,6 @@ public class LoginView extends JFrame {
         subtitulo.setHorizontalAlignment(SwingConstants.CENTER);
         subtitulo.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        tarjeta.add(Box.createVerticalStrut(28));
         tarjeta.add(logo);
         tarjeta.add(Box.createVerticalStrut(25));
         tarjeta.add(titulo);
@@ -144,7 +143,12 @@ public class LoginView extends JFrame {
         tarjeta.add(lblPassword);
         tarjeta.add(Box.createVerticalStrut(8));
         tarjeta.add(txtPassword);
-        tarjeta.add(Box.createVerticalStrut(32));
+        tarjeta.add(Box.createVerticalStrut(10));
+
+        // ¿OLVIDASTE TU CONTRASEÑA?
+        btnOlvide = crearEnlace("¿Olvidaste tu contraseña?");
+        tarjeta.add(btnOlvide);
+        tarjeta.add(Box.createVerticalStrut(18));
 
         // BOTÓN INGRESAR
         btnIngresar = crearBotonPrincipal("INICIAR SESIÓN");
@@ -155,8 +159,6 @@ public class LoginView extends JFrame {
         // BOTÓN REGISTRARSE
         btnRegistrarse = crearBotonSecundario("CREAR NUEVA CUENTA");
         tarjeta.add(btnRegistrarse);
-
-        tarjeta.add(Box.createVerticalGlue());
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;
@@ -173,24 +175,11 @@ public class LoginView extends JFrame {
         JLabel logo = new JLabel();
 
         try {
-            ImageIcon icono = new ImageIcon(
-                    getClass().getResource("/images/rentcar_logo.png")
-            );
-
-            Image imagen = icono.getImage();
-
-            int ancho = 200;
-            int alto = (imagen.getHeight(null) > 0)
-                    ? (int) Math.round((double) imagen.getHeight(null) / imagen.getWidth(null) * ancho)
-                    : 130;
-
-            imagen = imagen.getScaledInstance(
-                    ancho,
-                    alto,
-                    Image.SCALE_SMOOTH
-            );
-
-            logo.setIcon(new ImageIcon(imagen));
+            javax.swing.Icon icono = TemaRentCar.logoIcono(200, 120);
+            if (icono == null) {
+                throw new IllegalStateException("sin logo");
+            }
+            logo.setIcon(icono);
 
         } catch (Exception e) {
             logo.setText("RENTCAR");
@@ -327,7 +316,7 @@ public class LoginView extends JFrame {
 
             @Override
             public void mouseEntered(java.awt.event.MouseEvent e) {
-                boton.setBackground(new Color(45, 25, 25));
+                boton.setBackground(new Color(253, 238, 238));
             }
 
             @Override
@@ -337,6 +326,50 @@ public class LoginView extends JFrame {
         });
 
         return boton;
+    }
+
+    /** Botón con apariencia de enlace (texto rojo que se subraya al pasar el mouse). */
+    private JButton crearEnlace(String texto) {
+
+        JButton enlace = new JButton(texto);
+
+        enlace.setFont(fuenteRegular(11));
+        enlace.setForeground(GRIS);
+        enlace.setContentAreaFilled(false);
+        enlace.setBorderPainted(false);
+        enlace.setFocusPainted(false);
+        enlace.setOpaque(false);
+        enlace.setMargin(new Insets(0, 0, 0, 0));
+        enlace.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        enlace.setAlignmentX(Component.CENTER_ALIGNMENT);
+        enlace.setMaximumSize(new Dimension(340, 24));
+
+        enlace.addMouseListener(new java.awt.event.MouseAdapter() {
+
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                enlace.setForeground(ROJO);
+                enlace.setText("<html><u>" + texto + "</u></html>");
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                enlace.setForeground(GRIS);
+                enlace.setText(texto);
+            }
+        });
+
+        return enlace;
+    }
+
+    public JButton getBtnOlvide() {
+        return btnOlvide;
+    }
+
+    public void setUsuario(String usuario) {
+        txtUsuario.setText(usuario);
+        txtPassword.setText("");
+        txtPassword.requestFocusInWindow();
     }
 
     public String getUsuario() {
@@ -357,7 +390,7 @@ public class LoginView extends JFrame {
 
     public void mostrarMensaje(String mensaje) {
 
-        JOptionPane.showMessageDialog(
+        MensajeRentCar.mostrar(
                 this,
                 mensaje,
                 "RentCar",
