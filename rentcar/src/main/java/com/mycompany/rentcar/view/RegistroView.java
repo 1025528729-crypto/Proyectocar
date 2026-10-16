@@ -1,12 +1,16 @@
 package com.mycompany.rentcar.view;
 
+import com.mycompany.rentcar.util.PasswordValidator;
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.geom.RoundRectangle2D;
 import java.io.InputStream;
+
 
 public class RegistroView extends JFrame {
 
@@ -17,6 +21,10 @@ public class RegistroView extends JFrame {
     private JTextField txtRespuesta;
     private JButton btnRegistrar;
     private JButton btnVolver;
+
+    // Elementos visuales agregados para indicar la fortaleza de la contraseña
+    private JLabel lblEstadoSeguridad;
+    private JProgressBar barSeguridad;
 
     public static final String[] PREGUNTAS = {
         "¿Cuál es el nombre de tu primera mascota?",
@@ -139,7 +147,7 @@ public class RegistroView extends JFrame {
         );
 
         Dimension tamañoTarjeta =
-                new Dimension(440, 810);
+                new Dimension(440, 850); // Se ajustó levemente el alto para acomodar la barra de seguridad
 
         tarjeta.setPreferredSize(tamañoTarjeta);
         tarjeta.setMinimumSize(tamañoTarjeta);
@@ -211,7 +219,35 @@ public class RegistroView extends JFrame {
         tarjeta.add(lblPassword);
         tarjeta.add(Box.createVerticalStrut(7));
         tarjeta.add(txtPassword);
-        tarjeta.add(Box.createVerticalStrut(20));
+        tarjeta.add(Box.createVerticalStrut(6));
+
+        // COMPONENTES DE SEGURIDAD AGREGADOS
+        barSeguridad = new JProgressBar(0, 100);
+        barSeguridad.setPreferredSize(new Dimension(350, 6));
+        barSeguridad.setMaximumSize(new Dimension(350, 6));
+        barSeguridad.setAlignmentX(Component.CENTER_ALIGNMENT);
+        barSeguridad.setBorderPainted(false);
+        barSeguridad.setBackground(TARJETA2);
+
+        lblEstadoSeguridad = new JLabel("Seguridad: -");
+        lblEstadoSeguridad.setFont(fuenteRegular(10));
+        lblEstadoSeguridad.setForeground(GRIS);
+        lblEstadoSeguridad.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        tarjeta.add(barSeguridad);
+        tarjeta.add(Box.createVerticalStrut(4));
+        tarjeta.add(lblEstadoSeguridad);
+        tarjeta.add(Box.createVerticalStrut(14));
+
+        // Escuchador dinámico para evaluar la contraseña
+        txtPassword.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) { actualizarSeguridad(); }
+            @Override
+            public void removeUpdate(DocumentEvent e) { actualizarSeguridad(); }
+            @Override
+            public void changedUpdate(DocumentEvent e) { actualizarSeguridad(); }
+        });
 
         // CONFIRMAR CONTRASEÑA
         JLabel lblConfirmar =
@@ -274,6 +310,18 @@ public class RegistroView extends JFrame {
         fondo.add(tarjeta, gbc);
 
         setContentPane(fondo);
+    }
+
+    private void actualizarSeguridad() {
+        String pass = getPassword();
+        PasswordValidator.NivelSeguridad nivel = PasswordValidator.evaluarSeguridad(pass);
+
+        lblEstadoSeguridad.setText("Seguridad: " + nivel.getEtiqueta());
+        Color colorEstado = Color.decode(nivel.getColorHex());
+        lblEstadoSeguridad.setForeground(colorEstado);
+
+        barSeguridad.setValue(nivel.getPorcentaje());
+        barSeguridad.setForeground(colorEstado);
     }
 
     private JLabel crearLogo() {
