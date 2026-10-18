@@ -86,7 +86,7 @@ public class VehiculoView extends JPanel {
     private JTextField txtModelo;
     private JTextField txtPrecio;
     private JComboBox<String> comboTipo, comboTransmision, comboCombustible, comboCategoria;
-    private JTextField txtAnio, txtColor, txtCapacidad, txtKilometraje, txtPuertas;
+    private JTextField txtAnio, txtColor, txtCapacidad, txtKilometraje, txtPuertas, txtConsumo;
     private JComboBox<String> comboCiudad;
     private JTextArea txtDescripcion;
     private javax.swing.JCheckBox chkDisponible;
@@ -666,7 +666,7 @@ public class VehiculoView extends JPanel {
         JLabel lblFormulario = new JLabel("Registrar vehículo");
         lblFormulario.setFont(orbitron(true, 19f));
         lblFormulario.setForeground(COLOR_TEXTO);
-        JLabel lblAyudaFormulario = new JLabel("Completa los datos del automóvil o motocicleta");
+        JLabel lblAyudaFormulario = new JLabel("Completa los datos del vehículo (auto, moto, patineta, bicicleta, camión o camper)");
         lblAyudaFormulario.setFont(new Font("SansSerif", Font.PLAIN, 12));
         lblAyudaFormulario.setForeground(COLOR_GRIS);
         cabeceraFormulario.add(lblFormulario, BorderLayout.NORTH);
@@ -685,16 +685,17 @@ public class VehiculoView extends JPanel {
         });
         txtModelo = crearCampoTexto();
         txtPrecio = crearCampoPrecio();
-        comboTipo = new JComboBox<>(new String[]{"AUTO", "MOTO"});
-        comboTransmision = new JComboBox<>(new String[]{"No especificada", "Manual", "Automática", "Semiautomática"});
-        comboCombustible = new JComboBox<>(new String[]{"No especificado", "Gasolina", "Diésel", "Eléctrico", "Híbrido"});
-        comboCategoria = new JComboBox<>(new String[]{"No especificada", "Compacto", "Sedán", "SUV", "Pickup", "Deportiva", "Scooter", "Naked", "Touring", "Enduro", "Trabajo", "Otra"});
+        comboTipo = new JComboBox<>(new String[]{"AUTO", "MOTO", "PATINETA", "BICICLETA", "CAMION", "CAMPER"});
+        comboTransmision = new JComboBox<>(new String[]{"No especificada", "Manual", "Automática", "Semiautomática", "Ninguna"});
+        comboCombustible = new JComboBox<>(new String[]{"No especificado", "Gasolina", "Diésel", "Eléctrico", "Híbrido", "Ninguno"});
+        comboCategoria = new JComboBox<>(new String[]{"No especificada", "Compacto", "Sedán", "SUV", "Pickup", "Deportiva", "Scooter", "Naked", "Touring", "Enduro", "Trabajo", "Patineta", "Bicicleta", "Camión", "Camper", "Otra"});
         comboCiudad = new JComboBox<>(obtenerLugaresColombia());
         txtAnio = crearCampoTexto();
         txtColor = crearCampoTexto();
         txtCapacidad = crearCampoTexto();
         txtKilometraje = crearCampoTexto();
         txtPuertas = crearCampoTexto();
+        txtConsumo = crearCampoTexto();
         txtDescripcion = new JTextArea(3, 20);
         txtDescripcion.setLineWrap(true);
         txtDescripcion.setWrapStyleWord(true);
@@ -718,7 +719,7 @@ public class VehiculoView extends JPanel {
         }
         comboCiudad.setPreferredSize(new Dimension(190, 36));
         comboTipo.addActionListener(e -> {
-            boolean moto = "MOTO".equalsIgnoreCase(getTipo());
+            boolean moto = com.mycompany.rentcar.model.Vehiculo.sinPuertas(getTipo());
             txtCapacidad.setText("");
             if (moto) {
                 txtPuertas.setText("0");
@@ -731,7 +732,7 @@ public class VehiculoView extends JPanel {
         });
 
         JPanel seccionIdentificacion = crearSeccionFormulario("01  ·  IDENTIFICACIÓN");
-        agregarCampoFormulario(seccionIdentificacion, "Placa colombiana", new PlacaPanel(txtPlaca));
+        agregarCampoFormulario(seccionIdentificacion, "Placa o código", new PlacaPanel(txtPlaca));
         agregarCampoFormulario(seccionIdentificacion, "Marca", new MarcaPanel(logoMarca, comboMarca));
         agregarCampoFormulario(seccionIdentificacion, "Modelo", txtModelo);
         agregarCampoFormulario(seccionIdentificacion, "Precio por día (COP)", new PrecioPanel(txtPrecio));
@@ -752,6 +753,7 @@ public class VehiculoView extends JPanel {
         agregarCampoFormulario(seccionEspecificaciones, "Capacidad (personas)", txtCapacidad);
         agregarCampoFormulario(seccionEspecificaciones, "Número de puertas", txtPuertas);
         agregarCampoFormulario(seccionEspecificaciones, "Kilometraje (km)", txtKilometraje);
+        agregarCampoFormulario(seccionEspecificaciones, "Consumo (km/gal · km por carga) opcional", txtConsumo);
         agregarCampoFormulario(seccionEspecificaciones, "Categoría", comboCategoria);
         agregarCampoFormulario(seccionEspecificaciones, "Ciudad / ubicación", comboCiudad);
         agregarSeccionAlFormulario(colDerecha, seccionEspecificaciones);
@@ -2640,7 +2642,13 @@ public class VehiculoView extends JPanel {
         }
 
         Object seleccionAnterior = comboMarca.getSelectedItem();
-        boolean moto = "MOTO".equalsIgnoreCase(getTipo());
+        String tipoSel = getTipo().toUpperCase(Locale.ROOT);
+        boolean moto = "MOTO".equals(tipoSel);
+        String[] marcasPatineta = {"Selecciona una marca...", "Xiaomi", "Segway", "Ninebot", "Razor", "Hiboy", "Otra"};
+        String[] marcasBici = {"Selecciona una marca...", "Trek", "Specialized", "Giant", "GW", "Scott", "Cannondale", "Otra"};
+        String[] marcasCamion = {"Selecciona una marca...", "Chevrolet", "Foton", "Freightliner", "Hino", "Isuzu", "JAC",
+            "Kenworth", "Mercedes-Benz", "Volvo", "Otra"};
+        String[] marcasCamper = {"Selecciona una marca...", "Airstream", "Ford", "Mercedes-Benz", "Thor", "Volkswagen", "Winnebago", "Otra"};
         String[] marcasMoto = {
             "Selecciona una marca...", "AKT", "Auteco", "Bajaj", "Benelli",
             "BMW Motorrad", "CFMoto", "Ducati", "Hero", "Honda", "Husqvarna",
@@ -2654,7 +2662,15 @@ public class VehiculoView extends JPanel {
             "Peugeot", "Renault", "Subaru", "Suzuki", "Tesla", "Toyota",
             "Volkswagen", "Volvo", "Otra"
         };
-        String[] marcas = moto ? marcasMoto : marcasAuto;
+        String[] marcas = marcasAuto;
+        switch (tipoSel) {
+            case "MOTO": marcas = marcasMoto; break;
+            case "PATINETA": marcas = marcasPatineta; break;
+            case "BICICLETA": marcas = marcasBici; break;
+            case "CAMION": marcas = marcasCamion; break;
+            case "CAMPER": marcas = marcasCamper; break;
+            default: break;
+        }
 
         comboMarca.removeAllItems();
         for (String marca : marcas) {
@@ -3938,9 +3954,10 @@ public class VehiculoView extends JPanel {
     public int getCapacidad(){ return numero(txtCapacidad.getText(), 0); }
     public String getCapacidadTexto(){ return txtCapacidad.getText().trim(); }
     public int getKilometraje(){ return numero(txtKilometraje.getText(), 0); }
+    public double getConsumo(){ try{ return Math.max(0, Double.parseDouble(txtConsumo.getText().trim().replace(',', '.'))); }catch(Exception ex){ return 0; } }
     public String getKilometrajeTexto(){ return txtKilometraje.getText().trim(); }
     public String getPuertasTexto(){ return txtPuertas.getText().trim(); }
-    public int getPuertas(){ return getTipo().equalsIgnoreCase("MOTO") ? 0 : numero(txtPuertas.getText(), 0); }
+    public int getPuertas(){ return com.mycompany.rentcar.model.Vehiculo.sinPuertas(getTipo()) ? 0 : numero(txtPuertas.getText(), 0); }
     public String getCategoria(){ Object item = comboCategoria.getSelectedItem(); String v = item == null ? "" : item.toString(); return v.startsWith("No ")?"":v; }
     public String getCiudad(){ Object ciudad = comboCiudad.getSelectedItem(); return ciudad == null ? "" : ciudad.toString().trim(); }
     public String getDescripcion(){ return txtDescripcion.getText().trim(); }
@@ -3960,7 +3977,7 @@ public class VehiculoView extends JPanel {
         if (getTransmision().isBlank()) faltantes.add("transmisión");
         if (getCombustible().isBlank()) faltantes.add("combustible");
         if (getCapacidadTexto().isBlank()) faltantes.add("capacidad");
-        if (!getTipo().equalsIgnoreCase("MOTO") && getPuertasTexto().isBlank()) faltantes.add("número de puertas");
+        if (!com.mycompany.rentcar.model.Vehiculo.sinPuertas(getTipo()) && getPuertasTexto().isBlank()) faltantes.add("número de puertas");
         if (getKilometrajeTexto().isBlank()) faltantes.add("kilometraje");
         else if (!getKilometrajeTexto().matches("\\d+")) faltantes.add("kilometraje numérico");
         if (getCategoria().isBlank()) faltantes.add("categoría");
@@ -4098,7 +4115,8 @@ public class VehiculoView extends JPanel {
         comboCombustible.setSelectedItem(v.getCombustible().isBlank() ? "No especificado" : v.getCombustible());
         txtCapacidad.setText(String.valueOf(v.getCapacidad()));
         txtKilometraje.setText(String.valueOf(v.getKilometraje()));
-        txtPuertas.setText(v.getTipo().equalsIgnoreCase("MOTO") ? "0" : String.valueOf(v.getPuertas()));
+        txtConsumo.setText(v.getConsumo() > 0 ? String.valueOf(v.getConsumo()) : "");
+        txtPuertas.setText(com.mycompany.rentcar.model.Vehiculo.sinPuertas(v.getTipo()) ? "0" : String.valueOf(v.getPuertas()));
         comboCategoria.setSelectedItem(v.getCategoria().isBlank() ? "No especificada" : v.getCategoria());
         comboCiudad.setSelectedItem(v.getCiudad());
         txtDescripcion.setText(v.getDescripcion());
@@ -4180,7 +4198,7 @@ public class VehiculoView extends JPanel {
         txtPrecio.setText("");
         comboTipo.setSelectedIndex(-1); txtAnio.setText(""); txtColor.setText("");
         comboTransmision.setSelectedIndex(-1); comboCombustible.setSelectedIndex(-1);
-        txtCapacidad.setText(""); txtKilometraje.setText(""); txtPuertas.setText(""); txtPuertas.setEnabled(true); comboCategoria.setSelectedIndex(-1);
+        txtCapacidad.setText(""); txtKilometraje.setText(""); txtConsumo.setText(""); txtPuertas.setText(""); txtPuertas.setEnabled(true); comboCategoria.setSelectedIndex(-1);
         comboCiudad.setSelectedIndex(-1); txtDescripcion.setText(""); chkDisponible.setSelected(true);
 
         rutaFotoSeleccionada = "";

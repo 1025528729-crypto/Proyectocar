@@ -70,7 +70,7 @@ public class MainPublicView extends JPanel {
     private JCheckBox chkSUV;
     private JCheckBox chkPickup;
     private JCheckBox chkDisponibles;
-    private JCheckBox chkMoto;
+    private JCheckBox chkMoto, chkPatineta, chkBicicleta, chkCamion, chkCamper;
     private JCheckBox chkDeportiva, chkScooter, chkNaked, chkTouring, chkEnduro, chkTrabajo, chkOtra;
     private JCheckBox chkManual, chkAutomatica, chkSemiautomatica;
     // Los favoritos viven mientras el programa esté abierto (también al cambiar de tema, que reconstruye la ventana)
@@ -83,6 +83,7 @@ public class MainPublicView extends JPanel {
     private javax.swing.Timer pulsoDisponibilidad;
     private boolean consultandoDisponibilidad = false;
     private boolean procesandoAviso = false;
+    private JButton btnComparar;
     private boolean mostrarSoloFavoritos = false;
 
     // =========================================================
@@ -118,7 +119,7 @@ public class MainPublicView extends JPanel {
         tableModel = new DefaultTableModel(
                 new Object[]{"Foto", "Placa", "Marca", "Modelo", "Precio/Día", "Tipo", "Año", "Color",
                     "Transmisión", "Combustible", "Capacidad", "Kilometraje", "Categoría",
-                    "Descripción", "Ciudad", "Disponible", "Puertas"}, 0) {
+                    "Descripción", "Ciudad", "Disponible", "Puertas", "Consumo"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
@@ -235,6 +236,9 @@ public class MainPublicView extends JPanel {
 
         JPanel acciones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         acciones.setOpaque(false);
+        btnComparar = crearBotonSecundario("Comparar", e -> mostrarComparador());
+        actualizarBotonComparar();
+        acciones.add(btnComparar);
         acciones.add(crearBotonSecundario("Mis reservas", e -> mostrarMisReservas()));
         acciones.add(crearBotonSecundario("Ayuda", e -> mostrarAyuda()));
         panel.add(acciones, BorderLayout.EAST);
@@ -509,7 +513,11 @@ public class MainPublicView extends JPanel {
         chkTodos = crearChip("Todos", true);
         chkAuto = crearChip("Autos", false);
         chkMoto = crearChip("Motos", false);
-        agregarFiltro(panel, crearGrilla(3, chkTodos, chkAuto, chkMoto));
+        chkPatineta = crearChip("Patinetas", false);
+        chkBicicleta = crearChip("Bicicletas", false);
+        chkCamion = crearChip("Camiones", false);
+        chkCamper = crearChip("Campers", false);
+        agregarFiltro(panel, crearGrilla(2, chkTodos, chkAuto, chkMoto, chkPatineta, chkBicicleta, chkCamion, chkCamper));
 
         // ---------------- PRECIO ----------------
         agregarSeccion(panel, "PRECIO POR DÍA");
@@ -582,16 +590,22 @@ public class MainPublicView extends JPanel {
         // La lógica y el refresco van en el mismo listener para que no haya desfase.
         chkTodos.addActionListener(e -> {
             chkTodos.setSelected(true);
-            chkAuto.setSelected(false);
-            chkMoto.setSelected(false);
+            for (JCheckBox c : chipsTipo()) {
+                c.setSelected(false);
+            }
             actualizarTarjetas();
         });
         java.awt.event.ActionListener alCambiarTipo = e -> {
-            chkTodos.setSelected(!chkAuto.isSelected() && !chkMoto.isSelected());
+            boolean alguno = false;
+            for (JCheckBox c : chipsTipo()) {
+                alguno |= c.isSelected();
+            }
+            chkTodos.setSelected(!alguno);
             actualizarTarjetas();
         };
-        chkAuto.addActionListener(alCambiarTipo);
-        chkMoto.addActionListener(alCambiarTipo);
+        for (JCheckBox c : chipsTipo()) {
+            c.addActionListener(alCambiarTipo);
+        }
 
         chkFavoritos.addActionListener(e -> {
             mostrarSoloFavoritos = chkFavoritos.isSelected();
@@ -824,10 +838,14 @@ public class MainPublicView extends JPanel {
         actualizarTarjetas();
     }
 
+    private JCheckBox[] chipsTipo() {
+        return new JCheckBox[]{chkAuto, chkMoto, chkPatineta, chkBicicleta, chkCamion, chkCamper};
+    }
+
     private void limpiarFiltros() {
 
         chkTodos.setSelected(true);
-        for (JCheckBox filtro : new JCheckBox[]{chkAuto, chkMoto, chkCompacto, chkSedan, chkSUV, chkPickup,
+        for (JCheckBox filtro : new JCheckBox[]{chkAuto, chkMoto, chkPatineta, chkBicicleta, chkCamion, chkCamper, chkCompacto, chkSedan, chkSUV, chkPickup,
             chkDeportiva, chkScooter, chkNaked, chkTouring, chkEnduro, chkTrabajo, chkOtra,
             chkManual, chkAutomatica, chkSemiautomatica, chkDisponibles, chkFavoritos}) {
             filtro.setSelected(false);
@@ -1351,6 +1369,15 @@ public class MainPublicView extends JPanel {
         filaSuperior.add(favoritoPanel, BorderLayout.EAST);
         controlesImagen.add(filaSuperior, BorderLayout.NORTH);
 
+        // Pastilla «+ Comparar» abajo a la izquierda de la foto
+        JPanel comparadorPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+        comparadorPanel.setOpaque(false);
+        comparadorPanel.add(ComparadorRentCar.crearBotonTarjeta(placa,
+                this::actualizarBotonComparar,
+                () -> NotificacionesRentCar.aviso("Comparador lleno",
+                        "Puedes comparar hasta " + ComparadorRentCar.MAX + " vehículos a la vez. Quita uno para agregar otro.")));
+        controlesImagen.add(comparadorPanel, BorderLayout.SOUTH);
+
         panelImagen.add(controlesImagen);
         panelImagen.add(imagen);
         tarjeta.add(panelImagen, BorderLayout.NORTH);
@@ -1403,7 +1430,7 @@ public class MainPublicView extends JPanel {
         informacion.add(Box.createVerticalStrut(8));
 
         // Características
-        boolean esMoto = valorFila(filaModelo, 5, "AUTO").equalsIgnoreCase("MOTO");
+        boolean esMoto = com.mycompany.rentcar.model.Vehiculo.sinPuertas(valorFila(filaModelo, 5, "AUTO"));
         JPanel caracteristicas = new JPanel(new GridLayout(2, 2, 8, 10));
         caracteristicas.setOpaque(false);
         caracteristicas.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
@@ -2041,7 +2068,7 @@ public class MainPublicView extends JPanel {
     private JPanel construirPanelDetalles(DialogoInterno dialog, String marca, String modelo,
             String placa, Object precio, int filaModelo) {
 
-        boolean moto = valorFila(filaModelo, 5, "AUTO").equalsIgnoreCase("MOTO");
+        boolean moto = com.mycompany.rentcar.model.Vehiculo.sinPuertas(valorFila(filaModelo, 5, "AUTO"));
         boolean disponible = Boolean.parseBoolean(valorFila(filaModelo, 15, "true"));
 
         JPanel raiz = new JPanel(new BorderLayout());
@@ -2131,7 +2158,7 @@ public class MainPublicView extends JPanel {
         superior.setOpaque(false);
         superior.setLayout(new BoxLayout(superior, BoxLayout.Y_AXIS));
 
-        JLabel lblTipo = new JLabel(moto ? "MOTOCICLETA" : "AUTOMÓVIL");
+        JLabel lblTipo = new JLabel(com.mycompany.rentcar.model.Vehiculo.etiquetaTipo(valorFila(filaModelo, 5, "AUTO")));
         lblTipo.setForeground(COLOR_ROJO_HOVER);
         lblTipo.setFont(new Font("SansSerif", Font.BOLD, 12));
         lblTipo.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -2173,7 +2200,7 @@ public class MainPublicView extends JPanel {
         ficha.add(crearDatoFicha("TRANSMISIÓN", valorFila(filaModelo, 8, "No especificada")));
         ficha.add(crearDatoFicha("COMBUSTIBLE", valorFila(filaModelo, 9, "No especificado")));
         ficha.add(crearDatoFicha("CAPACIDAD", valorFila(filaModelo, 10, moto ? "2" : "5") + " personas"));
-        ficha.add(crearDatoFicha(moto ? "TIPO" : "PUERTAS", moto ? "Motocicleta" : valorFila(filaModelo, 16, "4")));
+        ficha.add(crearDatoFicha(moto ? "TIPO" : "PUERTAS", moto ? capitalizarTipo(valorFila(filaModelo, 5, "AUTO")) : valorFila(filaModelo, 16, "4")));
         ficha.add(crearDatoFicha("KILOMETRAJE", km));
         ficha.add(crearDatoFicha("CATEGORÍA", valorFila(filaModelo, 12, "No especificada")));
         superior.add(ficha);
@@ -2370,12 +2397,15 @@ public class MainPublicView extends JPanel {
 
         String tipo = valorFila(fila, 5, "AUTO").toUpperCase(Locale.ROOT);
         String categoria = valorFila(fila, 12, "").toLowerCase(Locale.ROOT);
-        boolean pideMoto = chkMoto != null && chkMoto.isSelected();
-        boolean pideAuto = chkAuto != null && chkAuto.isSelected();
-        if (pideMoto && !pideAuto && !tipo.equals("MOTO")) {
-            return false;
-        }
-        if (pideAuto && !pideMoto && tipo.equals("MOTO")) {
+        // Tipos pedidos: si no hay ninguno marcado se muestran todos
+        java.util.Set<String> pedidos = new HashSet<>();
+        if (chkAuto != null && chkAuto.isSelected()) pedidos.add("AUTO");
+        if (chkMoto != null && chkMoto.isSelected()) pedidos.add("MOTO");
+        if (chkPatineta != null && chkPatineta.isSelected()) pedidos.add("PATINETA");
+        if (chkBicicleta != null && chkBicicleta.isSelected()) pedidos.add("BICICLETA");
+        if (chkCamion != null && chkCamion.isSelected()) pedidos.add("CAMION");
+        if (chkCamper != null && chkCamper.isSelected()) pedidos.add("CAMPER");
+        if (!pedidos.isEmpty() && !pedidos.contains(tipo.replace("Ó", "O"))) {
             return false;
         }
 
@@ -2440,6 +2470,152 @@ public class MainPublicView extends JPanel {
             return false;
         }
         return true;
+    }
+
+    // =========================================================
+    // COMPARADOR DE ALQUILERES
+    // =========================================================
+
+    private String capitalizarTipo(String t) {
+        String e = com.mycompany.rentcar.model.Vehiculo.etiquetaTipo(t).toLowerCase(Locale.ROOT);
+        return Character.toUpperCase(e.charAt(0)) + e.substring(1);
+    }
+
+    private void actualizarBotonComparar() {
+        if (btnComparar == null) {
+            return;
+        }
+        int n = ComparadorRentCar.cantidad();
+        btnComparar.setText(n == 0 ? "Comparar" : "Comparar (" + n + ")");
+        btnComparar.setToolTipText("Compara precio, capacidad, consumo, características y costo total");
+    }
+
+    private int buscarFilaPorPlaca(String placa) {
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            if (placa.equals(obtenerValor(i, 1))) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private double numeroFila(int fila, int columna) {
+        if (fila < 0 || columna >= tableModel.getColumnCount()) {
+            return 0;
+        }
+        Object v = tableModel.getValueAt(fila, columna);
+        if (v instanceof Number) {
+            return ((Number) v).doubleValue();
+        }
+        try {
+            return v == null ? 0 : Double.parseDouble(v.toString().trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private String textoFila(int fila, int columna) {
+        if (fila < 0 || columna >= tableModel.getColumnCount()) {
+            return "";
+        }
+        Object v = tableModel.getValueAt(fila, columna);
+        return v == null ? "" : v.toString().trim();
+    }
+
+    private void mostrarComparador() {
+        // Si algún vehículo ya no está en el catálogo, se descarta de la selección
+        List<ComparadorRentCar.Item> items = new ArrayList<>();
+        for (String placa : ComparadorRentCar.seleccionados()) {
+            int f = buscarFilaPorPlaca(placa);
+            if (f < 0) {
+                ComparadorRentCar.quitar(placa);
+                continue;
+            }
+            ComparadorRentCar.Item it = new ComparadorRentCar.Item();
+            it.placa = placa;
+            it.marca = textoFila(f, 2);
+            it.modelo = textoFila(f, 3);
+            it.precioDia = numeroFila(f, 4);
+            it.tipo = textoFila(f, 5).isEmpty() ? "AUTO" : textoFila(f, 5);
+            it.anio = (int) numeroFila(f, 6);
+            it.color = textoFila(f, 7);
+            it.transmision = textoFila(f, 8);
+            it.combustible = textoFila(f, 9);
+            it.capacidad = (int) numeroFila(f, 10);
+            it.kilometraje = (int) numeroFila(f, 11);
+            it.categoria = textoFila(f, 12);
+            it.ciudad = textoFila(f, 14);
+            it.puertas = (int) numeroFila(f, 16);
+            it.consumo = numeroFila(f, 17);
+            boolean disp = Boolean.parseBoolean(valorFila(f, 15, "true"));
+            java.time.LocalDate libre = reservadas.get(placa);
+            it.disponible = disp && libre == null;
+            if (!disp) {
+                it.estado = "No disponible";
+            } else if (libre != null) {
+                it.estado = misReservadas.contains(placa) ? "Reservado por ti"
+                        : "Reservado · libre el " + libre.format(FORMATO_CORTO);
+            } else {
+                it.estado = "Disponible";
+            }
+            it.imagen = cargarImagenOriginal(textoFila(f, 0));
+            items.add(it);
+        }
+        actualizarBotonComparar();
+
+        if (items.size() < 2) {
+            NotificacionesRentCar.info("Elige vehículos para comparar",
+                    items.isEmpty()
+                            ? "Pulsa «+ Comparar» en las tarjetas del catálogo (mínimo 2)."
+                            : "Agrega al menos un vehículo más con «+ Comparar».");
+            return;
+        }
+
+        long dias = Math.max(1, (fechaDevolucion.getTime() - fechaRecogida.getTime()) / (24L * 60 * 60 * 1000));
+        String periodo = formatearFecha(fechaRecogida) + " → " + formatearFecha(fechaDevolucion);
+
+        final DialogoInterno[] dialog = new DialogoInterno[1];
+        ComparadorRentCar.Acciones acc = new ComparadorRentCar.Acciones() {
+            @Override
+            public void reservar(String placa) {
+                SwingUtilities.invokeLater(() -> {
+                    int f = buscarFilaPorPlaca(placa);
+                    if (f >= 0) {
+                        reservarVehiculo(textoFila(f, 2), textoFila(f, 3), placa, tableModel.getValueAt(f, 4), f);
+                    }
+                });
+            }
+
+            @Override
+            public void seleccionCambio() {
+                actualizarBotonComparar();
+            }
+
+            @Override
+            public JButton botonPrimario(String texto) {
+                return crearBotonPrimario(texto);
+            }
+
+            @Override
+            public JButton botonSecundario(String texto) {
+                return crearBotonSecundario(texto);
+            }
+
+            @Override
+            public void estilizar(JScrollPane scroll) {
+                estilizarBarraDesplazamiento(scroll);
+            }
+        };
+
+        JPanel cuerpo = ComparadorRentCar.crearPanel(items, (int) dias, periodo, acc, () -> dialog[0].dispose());
+        int w = Math.min(1180, Math.max(760, getWidth() - 80));
+        int h = Math.min(800, Math.max(580, getHeight() - 50));
+        dialog[0] = crearDialogoRentCar(this, "Comparador de alquileres", w, h, cuerpo);
+        dialog[0].setVisible(true);
+
+        // Al cerrar se refrescan las pastillas de las tarjetas y el contador
+        actualizarBotonComparar();
+        actualizarTarjetas();
     }
 
     // =========================================================
@@ -3186,7 +3362,7 @@ public class MainPublicView extends JPanel {
         textos.setOpaque(false);
         textos.setLayout(new BoxLayout(textos, BoxLayout.Y_AXIS));
 
-        JLabel tipo = new JLabel((r.esMoto() ? "MOTOCICLETA" : "AUTOMÓVIL") + "  ·  " + r.marca.toUpperCase(Locale.ROOT)
+        JLabel tipo = new JLabel(com.mycompany.rentcar.model.Vehiculo.etiquetaTipo(r.tipo) + "  ·  " + r.marca.toUpperCase(Locale.ROOT)
                 + (activa ? "" : "  ·  CANCELADA"));
         tipo.setForeground(activa ? COLOR_ROJO_HOVER : COLOR_SECUNDARIO);
         tipo.setFont(new Font("SansSerif", Font.BOLD, 11));

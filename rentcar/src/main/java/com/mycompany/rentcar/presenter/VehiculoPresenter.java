@@ -156,13 +156,14 @@ public class VehiculoPresenter {
         vehiculo.setCapacidad(view.getCapacidad());
         vehiculo.setKilometraje(view.getKilometraje());
         vehiculo.setPuertas(view.getPuertas());
+        vehiculo.setConsumo(view.getConsumo());
         vehiculo.setCategoria(view.getCategoria());
         vehiculo.setCiudad(view.getCiudad());
         vehiculo.setDescripcion(view.getDescripcion());
         vehiculo.setDisponible(view.isDisponible());
 
         if (vehiculo.getAnio() < 1886 || vehiculo.getCapacidad() < 1 || vehiculo.getKilometraje() < 0
-                || (!vehiculo.getTipo().equalsIgnoreCase("MOTO") && vehiculo.getPuertas() < 1)) {
+                || (!Vehiculo.sinPuertas(vehiculo.getTipo()) && vehiculo.getPuertas() < 1)) {
             MensajeRentCar.mostrar(view, "Revisa el año, la capacidad, el kilometraje y el número de puertas: deben tener valores válidos.", "Datos inválidos", JOptionPane.WARNING_MESSAGE);
             return;
         }

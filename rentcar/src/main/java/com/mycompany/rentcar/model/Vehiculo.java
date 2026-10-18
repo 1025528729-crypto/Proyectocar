@@ -1,6 +1,6 @@
 package com.mycompany.rentcar.model;
 
-/** Modelo común para automóviles y motocicletas. */
+/** Modelo común para automóviles, motocicletas, patinetas, bicicletas, camiones y campers. */
 public class Vehiculo {
     private String placa, marca, modelo, foto;
     private String tipo = "AUTO";
@@ -13,6 +13,30 @@ public class Vehiculo {
     private boolean disponible = true;
     private int propietarioId = 0;   // id del usuario que publicó el vehículo (0 = sin dueño)
     private double precioPorDia;
+    private double consumo = 0;      // rendimiento (km por galón; km por carga si es eléctrico). 0 = sin dato
+
+    /** Tipos admitidos: AUTO, MOTO, PATINETA, BICICLETA, CAMION, CAMPER. */
+    public static final String[] TIPOS = {"AUTO", "MOTO", "PATINETA", "BICICLETA", "CAMION", "CAMPER"};
+
+    /** Los vehículos sin carrocería no tienen puertas. */
+    public static boolean sinPuertas(String tipo) {
+        if (tipo == null) return false;
+        String t = tipo.trim().toUpperCase();
+        return t.equals("MOTO") || t.equals("PATINETA") || t.equals("BICICLETA");
+    }
+
+    /** Nombre para mostrar en tarjetas y detalles. */
+    public static String etiquetaTipo(String tipo) {
+        String t = tipo == null ? "AUTO" : tipo.trim().toUpperCase();
+        switch (t) {
+            case "MOTO": return "MOTOCICLETA";
+            case "PATINETA": return "PATINETA";
+            case "BICICLETA": return "BICICLETA";
+            case "CAMION": case "CAMIÓN": return "CAMIÓN";
+            case "CAMPER": return "CAMPER";
+            default: return "AUTOMÓVIL";
+        }
+    }
 
     public Vehiculo() {}
     public Vehiculo(String placa, String marca, String modelo, double precioPorDia) {
@@ -33,6 +57,7 @@ public class Vehiculo {
     public String getCombustible(){return combustible==null?"":combustible;} public void setCombustible(String v){combustible=v;}
     public int getCapacidad(){return capacidad;} public void setCapacidad(int v){capacidad=v;}
     public int getPuertas(){return puertas;} public void setPuertas(int v){puertas=v;}
+    public double getConsumo(){return consumo;} public void setConsumo(double v){consumo=v<0?0:v;}
     public int getKilometraje(){return kilometraje;} public void setKilometraje(int v){kilometraje=v;}
     public String getCategoria(){return categoria==null?"":categoria;} public void setCategoria(String v){categoria=v;}
     public String getDescripcion(){return descripcion==null?"":descripcion;} public void setDescripcion(String v){descripcion=v;}

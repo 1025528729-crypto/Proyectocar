@@ -210,7 +210,7 @@ public class MainPublicPresenter {
                                 v.getMarca(),
                                 v.getModelo(), v.getPrecioPorDia(), v.getTipo(), v.getAnio(), v.getColor(),
                                 v.getTransmision(), v.getCombustible(), v.getCapacidad(), v.getKilometraje(),
-                                v.getCategoria(), v.getDescripcion(), v.getCiudad(), v.isDisponible(), v.getPuertas()
+                                v.getCategoria(), v.getDescripcion(), v.getCiudad(), v.isDisponible(), v.getPuertas(), v.getConsumo()
                             }
                     );
         }
