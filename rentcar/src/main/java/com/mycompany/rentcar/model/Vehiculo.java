@@ -11,6 +11,7 @@ public class Vehiculo {
     private int kilometraje;
     private String categoria = "", descripcion = "", ciudad = "";
     private boolean disponible = true;
+    private int propietarioId = 0;   // id del usuario que publicó el vehículo (0 = sin dueño)
     private double precioPorDia;
 
     public Vehiculo() {}
@@ -38,4 +39,6 @@ public class Vehiculo {
     public String getCiudad(){return ciudad==null?"":ciudad;} public void setCiudad(String v){ciudad=v;}
     public boolean isDisponible(){return disponible;} public void setDisponible(boolean v){disponible=v;}
     @Override public String toString(){return "Vehiculo{"+"placa='"+placa+'\''+", tipo='"+getTipo()+'\''+", marca='"+marca+'\''+", modelo='"+modelo+'\''+", precioPorDia="+precioPorDia+'}';}
+    public int getPropietarioId() { return propietarioId; }
+    public void setPropietarioId(int propietarioId) { this.propietarioId = propietarioId; }
 }

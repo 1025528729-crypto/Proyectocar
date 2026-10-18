@@ -19,14 +19,14 @@ public class LoginView extends JFrame {
     private Font orbitronRegular;
     private Font orbitronBold;
 
-    private final Color FONDO = new Color(242, 244, 248);
-    private final Color TARJETA = new Color(255, 255, 255);
-    private final Color TARJETA2 = new Color(238, 241, 246);
-    private final Color ROJO = new Color(220, 38, 38);
-    private final Color ROJO_OSCURO = new Color(150, 25, 25);
-    private final Color BLANCO = new Color(23, 27, 34);
-    private final Color GRIS = new Color(98, 105, 118);
-    private final Color BORDE = new Color(211, 217, 226);
+    private final Color FONDO = TemaRentCar.c(242, 244, 248);
+    private final Color TARJETA = TemaRentCar.c(255, 255, 255);
+    private final Color TARJETA2 = TemaRentCar.c(238, 241, 246);
+    private final Color ROJO = TemaRentCar.c(220, 38, 38);
+    private final Color ROJO_OSCURO = TemaRentCar.c(150, 25, 25);
+    private final Color BLANCO = TemaRentCar.c(23, 27, 34);
+    private final Color GRIS = TemaRentCar.c(98, 105, 118);
+    private final Color BORDE = TemaRentCar.c(211, 217, 226);
 
     public LoginView() {
 
@@ -316,7 +316,7 @@ public class LoginView extends JFrame {
 
             @Override
             public void mouseEntered(java.awt.event.MouseEvent e) {
-                boton.setBackground(new Color(253, 238, 238));
+                boton.setBackground(TemaRentCar.c(253, 238, 238));
             }
 
             @Override

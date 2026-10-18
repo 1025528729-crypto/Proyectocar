@@ -20,7 +20,7 @@ public class VehiculoDAO {
             {"combustible","VARCHAR(40) DEFAULT ''"},{"capacidad","INT NOT NULL DEFAULT 5"},
             {"kilometraje","INT NOT NULL DEFAULT 0"},{"puertas","INT NOT NULL DEFAULT 4"},{"categoria","VARCHAR(60) DEFAULT ''"},
             {"descripcion","TEXT"},{"ciudad","VARCHAR(100) DEFAULT ''"},
-            {"disponible","TINYINT(1) NOT NULL DEFAULT 1"}
+            {"disponible","TINYINT(1) NOT NULL DEFAULT 1"},{"propietario_id","INT NULL"}
         };
         try(Connection c=Conexion.getConexion()){
             DatabaseMetaData md=c.getMetaData();
@@ -37,37 +37,44 @@ public class VehiculoDAO {
     }
 
     public boolean insertar(Vehiculo v){
-        String sql="INSERT INTO vehiculos (placa,marca,modelo,precio_por_dia,foto,tipo,anio,color,transmision,combustible,capacidad,kilometraje,puertas,categoria,descripcion,ciudad,disponible) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        String sql="INSERT INTO vehiculos (placa,marca,modelo,precio_por_dia,foto,tipo,anio,color,transmision,combustible,capacidad,kilometraje,puertas,categoria,descripcion,ciudad,disponible,propietario_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         try(Connection c=Conexion.getConexion();PreparedStatement p=c.prepareStatement(sql)){
             setDatos(p,v); return p.executeUpdate()>0;
         }catch(SQLException e){System.err.println("Error al insertar vehículo: "+e.getMessage());return false;}
     }
-    public boolean actualizar(Vehiculo v){
-        String sql="UPDATE vehiculos SET marca=?,modelo=?,precio_por_dia=?,foto=?,tipo=?,anio=?,color=?,transmision=?,combustible=?,capacidad=?,kilometraje=?,puertas=?,categoria=?,descripcion=?,ciudad=?,disponible=? WHERE placa=?";
+    /** Solo el dueño del vehículo (o un administrador) puede modificarlo: se valida en la propia sentencia SQL. */
+    public boolean actualizar(Vehiculo v,int usuarioId,boolean admin){
+        String sql="UPDATE vehiculos SET marca=?,modelo=?,precio_por_dia=?,foto=?,tipo=?,anio=?,color=?,transmision=?,combustible=?,capacidad=?,kilometraje=?,puertas=?,categoria=?,descripcion=?,ciudad=?,disponible=? WHERE placa=? AND (?=1 OR propietario_id=?)";
         try(Connection c=Conexion.getConexion();PreparedStatement p=c.prepareStatement(sql)){
             p.setString(1,v.getMarca());p.setString(2,v.getModelo());p.setDouble(3,v.getPrecioPorDia());p.setString(4,v.getFoto());
-            p.setString(5,v.getTipo());p.setInt(6,v.getAnio());p.setString(7,v.getColor());p.setString(8,v.getTransmision());p.setString(9,v.getCombustible());p.setInt(10,v.getCapacidad());p.setInt(11,v.getKilometraje());p.setInt(12,v.getPuertas());p.setString(13,v.getCategoria());p.setString(14,v.getDescripcion());p.setString(15,v.getCiudad());p.setBoolean(16,v.isDisponible());p.setString(17,v.getPlaca());
+            p.setString(5,v.getTipo());p.setInt(6,v.getAnio());p.setString(7,v.getColor());p.setString(8,v.getTransmision());p.setString(9,v.getCombustible());p.setInt(10,v.getCapacidad());p.setInt(11,v.getKilometraje());p.setInt(12,v.getPuertas());p.setString(13,v.getCategoria());p.setString(14,v.getDescripcion());p.setString(15,v.getCiudad());p.setBoolean(16,v.isDisponible());p.setString(17,v.getPlaca());p.setInt(18,admin?1:0);p.setInt(19,usuarioId);
             return p.executeUpdate()>0;
         }catch(SQLException e){System.err.println("Error al actualizar vehículo: "+e.getMessage());return false;}
     }
     private void setDatos(PreparedStatement p,Vehiculo v)throws SQLException{
-        p.setString(1,v.getPlaca());p.setString(2,v.getMarca());p.setString(3,v.getModelo());p.setDouble(4,v.getPrecioPorDia());p.setString(5,v.getFoto());p.setString(6,v.getTipo());p.setInt(7,v.getAnio());p.setString(8,v.getColor());p.setString(9,v.getTransmision());p.setString(10,v.getCombustible());p.setInt(11,v.getCapacidad());p.setInt(12,v.getKilometraje());p.setInt(13,v.getPuertas());p.setString(14,v.getCategoria());p.setString(15,v.getDescripcion());p.setString(16,v.getCiudad());p.setBoolean(17,v.isDisponible());
+        p.setString(1,v.getPlaca());p.setString(2,v.getMarca());p.setString(3,v.getModelo());p.setDouble(4,v.getPrecioPorDia());p.setString(5,v.getFoto());p.setString(6,v.getTipo());p.setInt(7,v.getAnio());p.setString(8,v.getColor());p.setString(9,v.getTransmision());p.setString(10,v.getCombustible());p.setInt(11,v.getCapacidad());p.setInt(12,v.getKilometraje());p.setInt(13,v.getPuertas());p.setString(14,v.getCategoria());p.setString(15,v.getDescripcion());p.setString(16,v.getCiudad());p.setBoolean(17,v.isDisponible());p.setObject(18,v.getPropietarioId()>0?(Object)v.getPropietarioId():null,java.sql.Types.INTEGER);
     }
-    public boolean eliminar(String placa){try(Connection c=Conexion.getConexion();PreparedStatement p=c.prepareStatement("DELETE FROM vehiculos WHERE placa=?")){p.setString(1,placa);return p.executeUpdate()>0;}catch(SQLException e){System.err.println("Error al eliminar vehículo: "+e.getMessage());return false;}}
+    /** Solo el dueño del vehículo (o un administrador) puede eliminarlo. */
+    public boolean eliminar(String placa,int usuarioId,boolean admin){try(Connection c=Conexion.getConexion();PreparedStatement p=c.prepareStatement("DELETE FROM vehiculos WHERE placa=? AND (?=1 OR propietario_id=?)")){p.setString(1,placa);p.setInt(2,admin?1:0);p.setInt(3,usuarioId);return p.executeUpdate()>0;}catch(SQLException e){System.err.println("Error al eliminar vehículo: "+e.getMessage());return false;}}
     public List<Vehiculo> listar(){return consultar("SELECT * FROM vehiculos ORDER BY disponible DESC, marca, modelo",null);}
+    /** Vehículos que el usuario puede gestionar: los suyos (un administrador ve todos). */
+    public List<Vehiculo> listarGestion(int usuarioId,boolean admin){
+        if(admin) return listar();
+        return consultar("SELECT * FROM vehiculos WHERE propietario_id=? ORDER BY disponible DESC, marca, modelo",usuarioId);
+    }
     public List<Vehiculo> listarPorMarca(String marca){return consultar("SELECT * FROM vehiculos WHERE LOWER(marca)=LOWER(?) ORDER BY marca,modelo",marca);}
     public List<Vehiculo> listarPorTipo(String tipo){return consultar("SELECT * FROM vehiculos WHERE UPPER(tipo)=UPPER(?) ORDER BY marca,modelo",tipo);}
-    private List<Vehiculo> consultar(String sql,String parametro){
+    private List<Vehiculo> consultar(String sql,Object parametro){
         List<Vehiculo> lista=new ArrayList<>();
         try(Connection c=Conexion.getConexion();PreparedStatement p=c.prepareStatement(sql)){
-            if(parametro!=null)p.setString(1,parametro);
+            if(parametro!=null)p.setObject(1,parametro);
             try(ResultSet r=p.executeQuery()){while(r.next())lista.add(mapear(r));}
         }catch(SQLException e){System.err.println("Error al consultar vehículos: "+e.getMessage());}
         return lista;
     }
     private Vehiculo mapear(ResultSet r)throws SQLException{
         Vehiculo v=new Vehiculo();v.setPlaca(r.getString("placa"));v.setMarca(r.getString("marca"));v.setModelo(r.getString("modelo"));v.setPrecioPorDia(r.getDouble("precio_por_dia"));v.setFoto(r.getString("foto"));
-        v.setTipo(r.getString("tipo"));v.setAnio(r.getInt("anio"));v.setColor(r.getString("color"));v.setTransmision(r.getString("transmision"));v.setCombustible(r.getString("combustible"));v.setCapacidad(r.getInt("capacidad"));v.setKilometraje(r.getInt("kilometraje"));v.setPuertas(r.getInt("puertas"));v.setCategoria(r.getString("categoria"));v.setDescripcion(r.getString("descripcion"));v.setCiudad(r.getString("ciudad"));v.setDisponible(r.getBoolean("disponible"));return v;
+        v.setTipo(r.getString("tipo"));v.setAnio(r.getInt("anio"));v.setColor(r.getString("color"));v.setTransmision(r.getString("transmision"));v.setCombustible(r.getString("combustible"));v.setCapacidad(r.getInt("capacidad"));v.setKilometraje(r.getInt("kilometraje"));v.setPuertas(r.getInt("puertas"));v.setCategoria(r.getString("categoria"));v.setDescripcion(r.getString("descripcion"));v.setCiudad(r.getString("ciudad"));v.setDisponible(r.getBoolean("disponible"));int pid=r.getInt("propietario_id");v.setPropietarioId(r.wasNull()?0:pid);return v;
     }
     public List<MarcaItem> obtenerMarcas(){
         List<MarcaItem> marcas=new ArrayList<>();String sql="SELECT DISTINCT marca FROM vehiculos WHERE marca IS NOT NULL ORDER BY marca";

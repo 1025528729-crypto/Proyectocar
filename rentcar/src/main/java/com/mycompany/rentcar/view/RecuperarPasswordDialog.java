@@ -17,15 +17,15 @@ import java.io.InputStream;
  */
 public class RecuperarPasswordDialog extends JDialog {
 
-    private static final Color FONDO = new Color(242, 244, 248);
-    private static final Color PANEL = new Color(255, 255, 255);
-    private static final Color CAMPO = new Color(238, 241, 246);
-    private static final Color ROJO = new Color(220, 38, 38);
-    private static final Color ROJO_OSCURO = new Color(150, 25, 25);
-    private static final Color BLANCO = new Color(23, 27, 34);
-    private static final Color GRIS = new Color(98, 105, 118);
-    private static final Color BORDE = new Color(211, 217, 226);
-    private static final Color VERDE = new Color(52, 190, 105);
+    private static Color FONDO = TemaRentCar.c(242, 244, 248);
+    private static Color PANEL = TemaRentCar.c(255, 255, 255);
+    private static Color CAMPO = TemaRentCar.c(238, 241, 246);
+    private static Color ROJO = TemaRentCar.c(220, 38, 38);
+    private static Color ROJO_OSCURO = TemaRentCar.c(150, 25, 25);
+    private static Color BLANCO = TemaRentCar.c(23, 27, 34);
+    private static Color GRIS = TemaRentCar.c(98, 105, 118);
+    private static Color BORDE = TemaRentCar.c(211, 217, 226);
+    private static Color VERDE = TemaRentCar.c(52, 190, 105);
 
     private static final String PASO_USUARIO = "usuario";
     private static final String PASO_RESPUESTA = "respuesta";
@@ -118,7 +118,7 @@ public class RecuperarPasswordDialog extends JDialog {
     private JPanel crearBarra() {
 
         JPanel barra = new JPanel(new BorderLayout());
-        barra.setBackground(new Color(242, 244, 248));
+        barra.setBackground(TemaRentCar.c(242, 244, 248));
         barra.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, ROJO));
         barra.setPreferredSize(new Dimension(10, 40));
 
@@ -130,15 +130,15 @@ public class RecuperarPasswordDialog extends JDialog {
 
         JLabel cerrar = new JLabel("×", SwingConstants.CENTER);
         cerrar.setOpaque(true);
-        cerrar.setBackground(new Color(242, 244, 248));
+        cerrar.setBackground(TemaRentCar.c(242, 244, 248));
         cerrar.setForeground(BLANCO);
         cerrar.setFont(new Font("SansSerif", Font.PLAIN, 22));
         cerrar.setPreferredSize(new Dimension(46, 38));
         cerrar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         cerrar.addMouseListener(new MouseAdapter() {
             @Override public void mouseClicked(MouseEvent e) { dispose(); }
-            @Override public void mouseEntered(MouseEvent e) { cerrar.setBackground(new Color(200, 30, 30)); }
-            @Override public void mouseExited(MouseEvent e) { cerrar.setBackground(new Color(242, 244, 248)); }
+            @Override public void mouseEntered(MouseEvent e) { cerrar.setBackground(TemaRentCar.c(200, 30, 30)); }
+            @Override public void mouseExited(MouseEvent e) { cerrar.setBackground(TemaRentCar.c(242, 244, 248)); }
         });
         barra.add(cerrar, BorderLayout.EAST);
 
@@ -182,7 +182,7 @@ public class RecuperarPasswordDialog extends JDialog {
     }
 
     private JLabel crearError() {
-        JLabel l = texto(" ", new Font("SansSerif", Font.PLAIN, 12), new Color(255, 110, 110));
+        JLabel l = texto(" ", new Font("SansSerif", Font.PLAIN, 12), TemaRentCar.c(255, 110, 110));
         l.setMaximumSize(new Dimension(390, 36));
         return l;
     }
@@ -227,7 +227,7 @@ public class RecuperarPasswordDialog extends JDialog {
 
         lblPregunta = new JLabel(" ", SwingConstants.CENTER);
         lblPregunta.setFont(new Font("SansSerif", Font.BOLD, 13));
-        lblPregunta.setForeground(new Color(255, 205, 0));
+        lblPregunta.setForeground(TemaRentCar.c(255, 205, 0));
         lblPregunta.setOpaque(true);
         lblPregunta.setBackground(CAMPO);
         lblPregunta.setBorder(BorderFactory.createCompoundBorder(
@@ -281,7 +281,7 @@ public class RecuperarPasswordDialog extends JDialog {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(52, 190, 105, 40));
+                g2.setColor(TemaRentCar.c(52, 190, 105, 40));
                 g2.fillOval(0, 0, getWidth() - 1, getHeight() - 1);
                 g2.setColor(VERDE);
                 g2.setStroke(new BasicStroke(2f));
@@ -376,7 +376,7 @@ public class RecuperarPasswordDialog extends JDialog {
         b.setMaximumSize(new Dimension(390, 42));
         b.setAlignmentX(Component.CENTER_ALIGNMENT);
         b.addMouseListener(new MouseAdapter() {
-            @Override public void mouseEntered(MouseEvent e) { b.setBackground(new Color(253, 238, 238)); }
+            @Override public void mouseEntered(MouseEvent e) { b.setBackground(TemaRentCar.c(253, 238, 238)); }
             @Override public void mouseExited(MouseEvent e) { b.setBackground(PANEL); }
         });
         return b;
@@ -451,5 +451,18 @@ public class RecuperarPasswordDialog extends JDialog {
         public Insets getBorderInsets(Component c) {
             return new Insets(2, 2, 2, 2);
         }
+    }
+
+    /** Vuelve a calcular la paleta cuando cambia el tema claro/oscuro. */
+    static void refrescarPaleta() {
+        FONDO = TemaRentCar.c(242, 244, 248);
+        PANEL = TemaRentCar.c(255, 255, 255);
+        CAMPO = TemaRentCar.c(238, 241, 246);
+        ROJO = TemaRentCar.c(220, 38, 38);
+        ROJO_OSCURO = TemaRentCar.c(150, 25, 25);
+        BLANCO = TemaRentCar.c(23, 27, 34);
+        GRIS = TemaRentCar.c(98, 105, 118);
+        BORDE = TemaRentCar.c(211, 217, 226);
+        VERDE = TemaRentCar.c(52, 190, 105);
     }
 }

@@ -75,7 +75,7 @@ import java.awt.FontMetrics;
 import java.awt.geom.RoundRectangle2D;
 
 
-public class VehiculoView extends JFrame {
+public class VehiculoView extends JPanel {
 
     // ============================================================
     // CAMPOS
@@ -124,63 +124,63 @@ public class VehiculoView extends JFrame {
     // ============================================================
 
     private final Color COLOR_FONDO =
-            new Color(242, 244, 248);
+            TemaRentCar.c(242, 244, 248);
 
     private final Color COLOR_ENCABEZADO =
-            new Color(242, 244, 248);
+            TemaRentCar.c(242, 244, 248);
 
     private final Color COLOR_PANEL =
-            new Color(255, 255, 255);
+            TemaRentCar.c(255, 255, 255);
 
     private final Color COLOR_BORDE =
-            new Color(230, 234, 241);
+            TemaRentCar.c(230, 234, 241);
 
     private final Color COLOR_CAMPO =
-            new Color(238, 241, 246);
+            TemaRentCar.c(238, 241, 246);
 
     private final Color COLOR_TEXTO =
-            new Color(23, 27, 34);
+            TemaRentCar.c(23, 27, 34);
 
     private final Color COLOR_GRIS =
-            new Color(98, 105, 118);
+            TemaRentCar.c(98, 105, 118);
 
     private final Color COLOR_ACENTO =
-            new Color(225, 6, 0);
+            TemaRentCar.c(225, 6, 0);
 
     private final Color COLOR_ACENTO_HOVER =
-            new Color(255, 45, 38);
+            TemaRentCar.c(255, 45, 38);
 
     private final Color COLOR_ELIMINAR =
-            new Color(55, 60, 70);
+            TemaRentCar.c(55, 60, 70);
 
     private final Color COLOR_ELIMINAR_HOVER =
-            new Color(150, 22, 22);
+            TemaRentCar.c(150, 22, 22);
 
     private final Color COLOR_FILA =
-            new Color(255, 255, 255);
+            TemaRentCar.c(255, 255, 255);
 
     private final Color COLOR_FILA_ALT =
-            new Color(238, 241, 246);
+            TemaRentCar.c(238, 241, 246);
 
     private final Color COLOR_SELECCION =
-            new Color(254, 228, 228);
+            TemaRentCar.c(254, 228, 228);
 
     // PLACA
     private final Color COLOR_PLACA =
-            new Color(255, 205, 0);
+            TemaRentCar.c(255, 205, 0);
 
     private final Color COLOR_PLACA_TEXTO =
-            new Color(15, 15, 15);
+            TemaRentCar.c(15, 15, 15);
 
     // PRECIO DIGITAL
     private final Color COLOR_DISPLAY_FONDO =
-            new Color(255, 244, 244);
+            TemaRentCar.c(255, 244, 244);
 
     private final Color COLOR_DISPLAY_BORDE =
-            new Color(232, 168, 168);
+            TemaRentCar.c(232, 168, 168);
 
     private final Color COLOR_DISPLAY_ROJO =
-            new Color(205, 18, 18);
+            TemaRentCar.c(205, 18, 18);
 
 
     // ============================================================
@@ -462,11 +462,7 @@ public class VehiculoView extends JFrame {
 
             ImageIcon icono =
                     new ImageIcon(
-                            imagen.getScaledInstance(
-                                    nuevoAncho,
-                                    nuevoAlto,
-                                    java.awt.Image.SCALE_SMOOTH
-                            )
+                            TemaRentCar.escalarImagen(imagen, nuevoAncho, nuevoAlto)
                     );
 
             lblFotoPreview.setText("");
@@ -514,7 +510,6 @@ public class VehiculoView extends JFrame {
 
         aplicarTemaMenus();
         initComponents();
-        VentanaRentCar.instalar(this);
     }
 
 
@@ -524,30 +519,11 @@ public class VehiculoView extends JFrame {
 
     private void initComponents() {
 
-        setTitle(
-                "RentCar - Gestión de Vehículos"
-        );
-
-        setExtendedState(
-                JFrame.MAXIMIZED_BOTH
-        );
-
-        setMinimumSize(
-                new Dimension(
-                        1100,
-                        700
-                )
-        );
-
-        setDefaultCloseOperation(
-                JFrame.DISPOSE_ON_CLOSE
-        );
-
         setLayout(
                 new BorderLayout()
         );
 
-        getContentPane().setBackground(
+        setBackground(
                 COLOR_FONDO
         );
 
@@ -583,27 +559,6 @@ public class VehiculoView extends JFrame {
                 )
         );
 
-        JLabel lblLogo =
-                new JLabel(
-                        cargarLogo(
-                                "/images/rentcar_logo.png",
-                                90
-                        )
-                );
-
-        // El logo funciona como acceso directo para volver al catálogo.
-        lblLogo.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        lblLogo.setToolTipText("Volver al catálogo de vehículos");
-        lblLogo.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                MainPublicView catalogo = new MainPublicView();
-                new MainPublicPresenter(catalogo);
-                catalogo.setVisible(true);
-                dispose();
-            }
-        });
-
         JLabel lblSubtitulo =
                 new JLabel(
                         "Gestión de vehículos y alquileres"
@@ -629,11 +584,6 @@ public class VehiculoView extends JFrame {
                 );
 
         panelTitulos.setOpaque(false);
-
-        panelTitulos.add(
-                lblLogo,
-                BorderLayout.WEST
-        );
 
         panelTitulos.add(
                 lblSubtitulo,
@@ -831,7 +781,7 @@ public class VehiculoView extends JFrame {
         btnGuardar = new BotonRacing("Registrar vehículo", COLOR_ACENTO, COLOR_ACENTO_HOVER);
         configurarBoton(btnGuardar);
         btnGuardar.setPreferredSize(new Dimension(260, 46));
-        btnModificar = new BotonRacing("Modificar seleccionado", new Color(45, 63, 82), new Color(61, 87, 112));
+        btnModificar = new BotonRacing("Modificar seleccionado", TemaRentCar.c(45, 63, 82), TemaRentCar.c(61, 87, 112));
         configurarBoton(btnModificar);
         btnModificar.setPreferredSize(new Dimension(250, 42));
         btnEliminar = new BotonRacing("Eliminar seleccionado", COLOR_ELIMINAR, COLOR_ELIMINAR_HOVER);
@@ -851,7 +801,7 @@ public class VehiculoView extends JFrame {
                 BorderFactory.createLineBorder(COLOR_BORDE),
                 BorderFactory.createEmptyBorder(12, 15, 12, 15)));
 
-        btnVolverFormulario = new BotonRacing("\u2190  Volver al formulario", new Color(45, 63, 82), new Color(61, 87, 112));
+        btnVolverFormulario = new BotonRacing("\u2190  Volver al formulario", TemaRentCar.c(45, 63, 82), TemaRentCar.c(61, 87, 112));
         configurarBoton(btnVolverFormulario);
         btnVolverFormulario.setPreferredSize(new Dimension(250, 42));
         btnVolverFormulario.addActionListener(e -> mostrarFormulario());
@@ -1244,7 +1194,7 @@ public class VehiculoView extends JFrame {
             @Override
             public void mouseEntered(MouseEvent e) {
                 tarjeta.setBorder(resaltado);
-                tarjeta.setBackground(new Color(238, 241, 246));
+                tarjeta.setBackground(TemaRentCar.c(238, 241, 246));
             }
 
             @Override
@@ -1570,11 +1520,7 @@ public class VehiculoView extends JFrame {
             setBorder(
                     BorderFactory.createCompoundBorder(
                             BorderFactory.createLineBorder(
-                                    new Color(
-                                            190,
-                                            150,
-                                            0
-                                    ),
+                                    TemaRentCar.c(190, 150, 0),
                                     2
                             ),
                             BorderFactory.createEmptyBorder(
@@ -1676,31 +1622,31 @@ public class VehiculoView extends JFrame {
             int arco = 14;
 
             // Sombra
-            g2.setColor(new Color(0, 0, 0, 90));
+            g2.setColor(TemaRentCar.c(0, 0, 0, 90));
             g2.fillRoundRect(x + 2, y + 4, pw, ph, arco, arco);
 
             // Borde negro exterior
-            g2.setColor(new Color(18, 18, 18));
+            g2.setColor(TemaRentCar.c(18, 18, 18));
             g2.fillRoundRect(x, y, pw, ph, arco, arco);
 
             // Lámina amarilla con degradado
             g2.setPaint(new java.awt.GradientPaint(
-                    0, y, new Color(255, 221, 20),
-                    0, y + ph, new Color(244, 186, 0)));
+                    0, y, TemaRentCar.c(255, 221, 20),
+                    0, y + ph, TemaRentCar.c(244, 186, 0)));
             g2.fillRoundRect(x + 3, y + 3, pw - 6, ph - 6, arco - 4, arco - 4);
 
             // Marco interior fino
-            g2.setColor(new Color(18, 18, 18, 190));
+            g2.setColor(TemaRentCar.c(18, 18, 18, 190));
             g2.setStroke(new BasicStroke(1.4f));
             g2.drawRoundRect(x + 7, y + 7, pw - 15, ph - 15, 8, 8);
 
             // Tornillos
-            g2.setColor(new Color(60, 50, 10, 170));
+            g2.setColor(TemaRentCar.c(60, 50, 10, 170));
             g2.fillOval(x + 11, y + ph / 2 - 3, 6, 6);
             g2.fillOval(x + pw - 17, y + ph / 2 - 3, 6, 6);
 
             // "COLOMBIA"
-            g2.setColor(new Color(18, 18, 18));
+            g2.setColor(TemaRentCar.c(18, 18, 18));
             Font fPais = new Font("Arial", Font.BOLD, 9);
             g2.setFont(fPais);
             String pais = "C O L O M B I A";
@@ -1776,9 +1722,9 @@ public class VehiculoView extends JFrame {
                     table, texto, isSelected, hasFocus, row, column);
 
             if (value instanceof Boolean && !isSelected) {
-                label.setForeground(((Boolean) value) ? new Color(22, 150, 70) : COLOR_GRIS);
+                label.setForeground(((Boolean) value) ? TemaRentCar.c(22, 150, 70) : COLOR_GRIS);
             } else if (nombre.equals("Tipo") && !isSelected) {
-                label.setForeground("MOTO".equalsIgnoreCase(texto) ? new Color(200, 110, 0) : COLOR_TEXTO);
+                label.setForeground("MOTO".equalsIgnoreCase(texto) ? TemaRentCar.c(200, 110, 0) : COLOR_TEXTO);
             }
             label.setToolTipText(texto);
             return label;
@@ -3363,7 +3309,7 @@ public class VehiculoView extends JFrame {
             if (isSelected) {
 
                 label.setBackground(
-                        new Color(253, 238, 238)
+                        TemaRentCar.c(253, 238, 238)
                 );
             }
 
@@ -3514,10 +3460,7 @@ public class VehiculoView extends JFrame {
             );
 
             g2.setColor(
-                    new Color(
-                            255,
-                            255,
-                            255,
+                    TemaRentCar.c(255, 255, 255,
                             30
                     )
             );
@@ -3915,10 +3858,10 @@ public class VehiculoView extends JFrame {
     }
 
     private void aplicarTemaMenus() {
-        Color fondo = new Color(255, 255, 255);
-        Color campo = new Color(238, 241, 246);
-        Color texto = new Color(23, 27, 34);
-        Color acento = new Color(225, 6, 0);
+        Color fondo = TemaRentCar.c(255, 255, 255);
+        Color campo = TemaRentCar.c(238, 241, 246);
+        Color texto = TemaRentCar.c(23, 27, 34);
+        Color acento = TemaRentCar.c(225, 6, 0);
         UIManager.put("MenuBar.background", fondo);
         UIManager.put("MenuBar.foreground", texto);
         UIManager.put("Menu.background", fondo);
@@ -3934,13 +3877,13 @@ public class VehiculoView extends JFrame {
         UIManager.put("ComboBox.foreground", texto);
         UIManager.put("List.background", campo);
         UIManager.put("List.foreground", texto);
-        UIManager.put("ScrollBar.thumb", new Color(183, 183, 187));
-        UIManager.put("ScrollBar.track", new Color(255, 255, 255));
+        UIManager.put("ScrollBar.thumb", TemaRentCar.c(183, 183, 187));
+        UIManager.put("ScrollBar.track", TemaRentCar.c(255, 255, 255));
     }
 
     private void estilizarBarraDesplazamiento(JScrollPane scroll) {
-        java.awt.Color pista = new Color(255, 255, 255);
-        java.awt.Color pulgar = new Color(183, 183, 187);
+        java.awt.Color pista = TemaRentCar.c(255, 255, 255);
+        java.awt.Color pulgar = TemaRentCar.c(183, 183, 187);
         java.awt.Color pulgarHover = new java.awt.Color(225, 6, 0);
         for (javax.swing.JScrollBar barra : new javax.swing.JScrollBar[]{
                 scroll.getVerticalScrollBar(), scroll.getHorizontalScrollBar()}) {
@@ -4135,7 +4078,7 @@ public class VehiculoView extends JFrame {
 
     public void setModoEdicion(boolean editando) {
         txtPlaca.setEditable(!editando);
-        txtPlaca.setBackground(editando ? new Color(230, 234, 241) : COLOR_CAMPO);
+        txtPlaca.setBackground(editando ? TemaRentCar.c(230, 234, 241) : COLOR_CAMPO);
         btnGuardar.setText(editando ? "Guardar modificación" : "Registrar vehículo");
         btnModificar.setText(editando ? "Editar otro" : "Modificar seleccionado");
     }
@@ -4168,7 +4111,7 @@ public class VehiculoView extends JFrame {
                     File archivoFoto = FotoVehiculoUtil.resolver(rutaFotoSeleccionada);
                     BufferedImage imagen = archivoFoto == null ? null : leerFotoReducida(archivoFoto);
                     if (imagen != null) {
-                        lblFotoPreview.setIcon(new ImageIcon(imagen.getScaledInstance(125, 78, java.awt.Image.SCALE_SMOOTH)));
+                        lblFotoPreview.setIcon(new ImageIcon(TemaRentCar.escalarImagen(imagen, 125, 78)));
                         lblFotoPreview.setText("");
                     } else {
                         lblFotoPreview.setText("FOTO GUARDADA");

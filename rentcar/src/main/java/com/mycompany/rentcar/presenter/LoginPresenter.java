@@ -2,175 +2,209 @@ package com.mycompany.rentcar.presenter;
 
 import com.mycompany.rentcar.model.Usuario;
 import com.mycompany.rentcar.model.UsuarioDAO;
-import com.mycompany.rentcar.view.LoginView;
-import com.mycompany.rentcar.view.RecuperarPasswordDialog;
-import com.mycompany.rentcar.view.RegistroView;
-import com.mycompany.rentcar.view.VehiculoView;
+import com.mycompany.rentcar.util.Async;
+import com.mycompany.rentcar.view.AccesoView;
+import com.mycompany.rentcar.view.AppFrame;
 
+/**
+ * Lógica de la pantalla de acceso (iniciar sesión, crear cuenta y recuperar
+ * contraseña). Las consultas a la base de datos se hacen en segundo plano
+ * para que la ventana no se congele.
+ */
 public class LoginPresenter {
-    private LoginView view;
-    private UsuarioDAO usuarioDAO;
-    private Runnable onLoginExitoso;
 
-    public LoginPresenter(LoginView view) {
-        this(view, null);
-    }
+    private final AccesoView view;
+    private final AppFrame app;
 
-    public LoginPresenter(LoginView view, Runnable onLoginExitoso) {
+    private UsuarioDAO usuarioDAO;           // se crea la primera vez que se necesita (en segundo plano)
+
+    private String usuarioVerificado;        // paso 2 de la recuperación
+    private int intentosFallidos = 0;
+
+    public LoginPresenter(AccesoView view, AppFrame app) {
         this.view = view;
-        this.onLoginExitoso = onLoginExitoso;
-        this.usuarioDAO = new UsuarioDAO();
-        
-        this.view.getBtnIngresar().addActionListener(e -> autenticar());
-        this.view.getBtnRegistrarse().addActionListener(e -> abrirRegistro());
-        this.view.getBtnOlvide().addActionListener(e -> abrirRecuperacion());
+        this.app = app;
+
+        view.getBtnIngresar().addActionListener(e -> autenticar());
+        view.getBtnRegistrar().addActionListener(e -> registrar());
+        view.getBtnContinuar().addActionListener(e -> buscarUsuarioParaRecuperar());
+        view.getBtnCambiar().addActionListener(e -> cambiarPassword());
     }
+
+    private synchronized UsuarioDAO dao() {
+        if (usuarioDAO == null) {
+            usuarioDAO = new UsuarioDAO();
+        }
+        return usuarioDAO;
+    }
+
+    private void fallo(Throwable ex) {
+        view.setOcupado(false);
+        view.mostrarError("No se pudo conectar con la base de datos. Revisa tu internet e inténtalo de nuevo.");
+        ex.printStackTrace();
+    }
+
+    // =========================================================
+    // INICIAR SESIÓN
+    // =========================================================
 
     private void autenticar() {
         String user = view.getUsuario();
         String pass = view.getPassword();
 
         if (user.isEmpty() || pass.isEmpty()) {
-            view.mostrarMensaje("Por favor, ingrese usuario y contraseña.");
+            view.mostrarError("Ingresa tu usuario y tu contraseña.");
             return;
         }
 
-        Usuario usuario = usuarioDAO.autenticar(user, pass);
+        view.limpiarMensaje();
+        view.setOcupado(true);
 
-        if (usuario != null) {
-            view.dispose(); // Cierra ventana de login sin mostrar mensaje emergente
-            if (onLoginExitoso != null) {
-                onLoginExitoso.run(); // cierra el catálogo solo ahora que el login fue exitoso
+        Async.run(() -> dao().autenticar(user, pass), usuario -> {
+            view.setOcupado(false);
+            if (usuario != null) {
+                view.limpiarPassword();
+                app.iniciarSesion(usuario);
+            } else {
+                view.mostrarError("Usuario o contraseña incorrectos.");
             }
-            
-            VehiculoView vehiculoView = new VehiculoView();
-            new VehiculoPresenter(vehiculoView, usuario);
-            vehiculoView.setVisible(true);
-        } else {
-            view.mostrarMensaje("Usuario o contraseña incorrectos.");
-        }
+        }, this::fallo);
     }
 
     // =========================================================
-    // RECUPERAR CONTRASEÑA (pregunta de seguridad)
+    // CREAR CUENTA
     // =========================================================
 
-    private void abrirRecuperacion() {
+    private void registrar() {
+        String user = view.getRegUsuario();
+        String pass = view.getRegPassword();
+        String respuesta = view.getRegRespuesta();
 
-        RecuperarPasswordDialog dialogo = new RecuperarPasswordDialog(view);
-        final String[] usuarioVerificado = {null};
-        final int[] intentos = {0};
-        final boolean[] cambiada = {false};
+        if (user.isEmpty() || pass.isEmpty()) {
+            view.mostrarError("Completa el usuario y la contraseña.");
+            return;
+        }
+        if (!pass.equals(view.getRegConfirmacion())) {
+            view.mostrarError("Las contraseñas no coinciden.");
+            return;
+        }
+        if (respuesta.length() < 2) {
+            view.mostrarError("Escribe la respuesta a tu pregunta de seguridad (te servirá para recuperar tu contraseña).");
+            return;
+        }
 
-        // Paso 1: buscar el usuario y mostrar su pregunta
-        dialogo.getBtnContinuar().addActionListener(e -> {
-            String usuario = dialogo.getUsuarioIngresado();
+        String pregunta = view.getRegPregunta();
 
-            if (usuario.isEmpty()) {
-                dialogo.mostrarError("Escribe tu nombre de usuario.");
-                return;
+        view.limpiarMensaje();
+        view.setOcupado(true);
+
+        // Una sola tarea en segundo plano: ver si existe y, si no, crearla
+        Async.run(() -> {
+            if (dao().existeUsuario(user)) {
+                return "EXISTE";
             }
-            if (!usuarioDAO.existeUsuario(usuario)) {
-                dialogo.mostrarError("No encontramos ese usuario.");
-                return;
-            }
-
-            String pregunta = usuarioDAO.obtenerPreguntaSeguridad(usuario);
-            if (pregunta == null) {
-                dialogo.mostrarError("Esta cuenta no tiene pregunta de seguridad (se creó antes de esta función). "
-                        + "Pide a un administrador que restablezca tu contraseña.");
-                return;
-            }
-
-            usuarioVerificado[0] = usuario;
-            dialogo.mostrarPasoRespuesta(pregunta);
-        });
-
-        // Paso 2: validar respuesta y guardar la nueva contraseña
-        dialogo.getBtnCambiar().addActionListener(e -> {
-            String respuesta = dialogo.getRespuesta();
-            String nueva = dialogo.getNuevaPassword();
-            String confirmacion = dialogo.getConfirmacion();
-
-            if (respuesta.isEmpty() || nueva.isEmpty() || confirmacion.isEmpty()) {
-                dialogo.mostrarError("Completa todos los campos.");
-                return;
-            }
-            if (nueva.length() < 4) {
-                dialogo.mostrarError("La nueva contraseña debe tener al menos 4 caracteres.");
-                return;
-            }
-            if (!nueva.equals(confirmacion)) {
-                dialogo.mostrarError("Las contraseñas no coinciden.");
-                return;
-            }
-
-            if (!usuarioDAO.verificarRespuestaSeguridad(usuarioVerificado[0], respuesta)) {
-                intentos[0]++;
-                if (intentos[0] >= 5) {
-                    dialogo.dispose();
-                    view.mostrarMensaje("Demasiados intentos fallidos. Inténtalo de nuevo más tarde.");
-                    return;
+            return dao().registrar(user, pass, pregunta, respuesta) ? "OK" : "ERROR";
+        }, resultado -> {
+            view.setOcupado(false);
+            switch (resultado) {
+                case "EXISTE" -> view.mostrarError("Ese nombre de usuario ya está registrado.");
+                case "OK" -> {
+                    view.limpiarRegistro();
+                    view.mostrarTab(0);
+                    view.setUsuario(user);
+                    view.mostrarExito("¡Cuenta creada! Ya puedes iniciar sesión.");
                 }
-                dialogo.mostrarError("La respuesta no es correcta. Intentos restantes: " + (5 - intentos[0]) + ".");
-                dialogo.limpiarRespuesta();
-                return;
+                default -> view.mostrarError("No se pudo crear la cuenta. Inténtalo de nuevo.");
             }
-
-            if (usuarioDAO.cambiarPassword(usuarioVerificado[0], nueva)) {
-                cambiada[0] = true;
-                dialogo.mostrarPasoListo(usuarioVerificado[0]);
-            } else {
-                dialogo.mostrarError("No se pudo actualizar la contraseña. Intenta de nuevo.");
-            }
-        });
-
-        dialogo.setVisible(true); // modal: continúa cuando se cierra
-
-        // Si se cambió la contraseña, el usuario queda escrito en el login
-        if (cambiada[0]) {
-            view.setUsuario(usuarioVerificado[0]);
-        }
+        }, this::fallo);
     }
 
-    private void abrirRegistro() {
-        RegistroView registroView = new RegistroView();
-        
-        registroView.getBtnRegistrar().addActionListener(e -> {
-            String user = registroView.getUsuario();
-            String pass = registroView.getPassword();
-            String confirmPass = registroView.getConfirmPassword();
+    // =========================================================
+    // RECUPERAR CONTRASEÑA
+    // =========================================================
 
-            if (user.isEmpty() || pass.isEmpty()) {
-                registroView.mostrarMensaje("Por favor complete todos los campos.");
-                return;
+    private void buscarUsuarioParaRecuperar() {
+        String usuario = view.getRecUsuario();
+
+        if (usuario.isEmpty()) {
+            view.mostrarError("Escribe tu nombre de usuario.");
+            return;
+        }
+
+        view.limpiarMensaje();
+        view.setOcupado(true);
+
+        Async.run(() -> {
+            if (!dao().existeUsuario(usuario)) {
+                return "NO_EXISTE";
             }
-
-            if (!pass.equals(confirmPass)) {
-                registroView.mostrarMensaje("Las contraseñas no coinciden.");
-                return;
-            }
-
-            if (usuarioDAO.existeUsuario(user)) {
-                registroView.mostrarMensaje("El nombre de usuario ya está registrado.");
-                return;
-            }
-
-            String respuesta = registroView.getRespuesta();
-            if (respuesta.length() < 2) {
-                registroView.mostrarMensaje("Escribe la respuesta a tu pregunta de seguridad (te servirá para recuperar tu contraseña).");
-                return;
-            }
-
-            if (usuarioDAO.registrar(user, pass, registroView.getPregunta(), respuesta)) {
-                registroView.mostrarMensaje("¡Registro exitoso! Ya puedes iniciar sesión.");
-                registroView.dispose();
+            String pregunta = dao().obtenerPreguntaSeguridad(usuario);
+            return pregunta == null ? "SIN_PREGUNTA" : "P:" + pregunta;
+        }, resultado -> {
+            view.setOcupado(false);
+            if (resultado.equals("NO_EXISTE")) {
+                view.mostrarError("No encontramos ese usuario.");
+            } else if (resultado.equals("SIN_PREGUNTA")) {
+                view.mostrarError("Esta cuenta no tiene pregunta de seguridad (se creó antes de esta función). "
+                        + "Pide a un administrador que restablezca tu contraseña.");
             } else {
-                registroView.mostrarMensaje("Error al crear la cuenta. Intente nuevamente.");
+                usuarioVerificado = usuario;
+                intentosFallidos = 0;
+                view.mostrarPasoRespuesta(resultado.substring(2));
             }
-        });
+        }, this::fallo);
+    }
 
-        registroView.getBtnVolver().addActionListener(e -> registroView.dispose());
-        registroView.setVisible(true);
+    private void cambiarPassword() {
+        String respuesta = view.getRecRespuesta();
+        String nueva = view.getRecNueva();
+        String confirmacion = view.getRecConfirmacion();
+
+        if (respuesta.isEmpty() || nueva.isEmpty() || confirmacion.isEmpty()) {
+            view.mostrarError("Completa todos los campos.");
+            return;
+        }
+        if (nueva.length() < 4) {
+            view.mostrarError("La contraseña nueva debe tener al menos 4 caracteres.");
+            return;
+        }
+        if (!nueva.equals(confirmacion)) {
+            view.mostrarError("Las contraseñas no coinciden.");
+            return;
+        }
+
+        final String usuario = usuarioVerificado;
+
+        view.limpiarMensaje();
+        view.setOcupado(true);
+
+        Async.run(() -> {
+            if (!dao().verificarRespuestaSeguridad(usuario, respuesta)) {
+                return "RESPUESTA_MALA";
+            }
+            return dao().cambiarPassword(usuario, nueva) ? "OK" : "ERROR";
+        }, resultado -> {
+            view.setOcupado(false);
+            switch (resultado) {
+                case "RESPUESTA_MALA" -> {
+                    intentosFallidos++;
+                    if (intentosFallidos >= 5) {
+                        view.reiniciarRecuperacion();
+                        view.mostrarTab(0);
+                        view.mostrarError("Demasiados intentos fallidos. Inténtalo de nuevo más tarde.");
+                    } else {
+                        view.mostrarError("La respuesta no es correcta. Intentos restantes: " + (5 - intentosFallidos) + ".");
+                        view.limpiarRespuesta();
+                    }
+                }
+                case "OK" -> {
+                    view.reiniciarRecuperacion();
+                    view.mostrarTab(0);
+                    view.setUsuario(usuario);
+                    view.mostrarExito("Contraseña actualizada. Ya puedes iniciar sesión con la nueva.");
+                }
+                default -> view.mostrarError("No se pudo actualizar la contraseña. Inténtalo de nuevo.");
+            }
+        }, this::fallo);
     }
 }

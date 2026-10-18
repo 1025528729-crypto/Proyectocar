@@ -2,7 +2,6 @@ package com.mycompany.rentcar.presenter;
 
 import com.mycompany.rentcar.model.Vehiculo;
 import com.mycompany.rentcar.model.VehiculoDAO;
-import com.mycompany.rentcar.view.LoginView;
 import com.mycompany.rentcar.view.MainPublicView;
 
 import javax.swing.SwingWorker;
@@ -66,12 +65,6 @@ public class MainPublicPresenter {
         view.getBtnVerTodos()
                 .addActionListener(
                         e -> cargarTodosLosVehiculos()
-                );
-
-        // Iniciar sesión
-        view.getBtnLogin()
-                .addActionListener(
-                        e -> abrirLogin()
                 );
 
         cargarTodosLosVehiculos();
@@ -221,32 +214,5 @@ public class MainPublicPresenter {
                             }
                     );
         }
-    }
-
-    // =========================================================
-    // ABRIR LOGIN
-    // =========================================================
-
-    private LoginView loginAbierto;
-
-    private void abrirLogin() {
-
-        // El catálogo se mantiene abierto; si el login ya está abierto solo se trae al frente
-        if (loginAbierto != null && loginAbierto.isDisplayable()) {
-            loginAbierto.toFront();
-            loginAbierto.requestFocus();
-            return;
-        }
-
-        loginAbierto = new LoginView();
-
-        // Cerrar el login ya no cierra todo el programa
-        loginAbierto.setDefaultCloseOperation(javax.swing.JFrame.DISPOSE_ON_CLOSE);
-
-        // El catálogo solo se cierra cuando el inicio de sesión es exitoso
-        new LoginPresenter(loginAbierto, view::dispose);
-
-        loginAbierto.setLocationRelativeTo(view);
-        loginAbierto.setVisible(true);
     }
 }

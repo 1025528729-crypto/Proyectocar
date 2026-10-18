@@ -7,7 +7,7 @@ import com.mycompany.rentcar.view.MensajeRentCar;
 import com.mycompany.rentcar.view.VehiculoView;
 
 import javax.swing.JOptionPane;
-import javax.swing.JDialog;
+import com.mycompany.rentcar.view.DialogoInterno;
 import javax.swing.JPanel;
 import javax.swing.JLabel;
 import javax.swing.JButton;
@@ -169,7 +169,21 @@ public class VehiculoPresenter {
 
         // Insertar o actualizar el vehículo en la base de datos.
         boolean editando = placaEditando != null;
-        boolean registrado = editando ? dao.actualizar(vehiculo) : dao.insertar(vehiculo);
+        if (usuarioLogueado == null) {
+            MensajeRentCar.mostrar(view, "Inicia sesión para publicar vehículos.", "Sesión requerida", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (editando) {
+            Vehiculo actual = dao.buscarPorPlaca(placaEditando);
+            if (actual == null || !puedeGestionar(actual)) {
+                MensajeRentCar.mostrar(view, "Este vehículo pertenece a otra cuenta. Solo puedes modificar los que tú publicaste.",
+                        "Sin permiso", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+        } else {
+            vehiculo.setPropietarioId(usuarioLogueado.getId());   // el vehículo queda a nombre de quien lo publica
+        }
+        boolean registrado = editando ? dao.actualizar(vehiculo, idUsuario(), esAdmin()) : dao.insertar(vehiculo);
 
         if (registrado) {
 
@@ -202,9 +216,9 @@ public class VehiculoPresenter {
         final Color gris = new Color(98, 105, 118);
 
         Window owner = SwingUtilities.getWindowAncestor(view);
-        JDialog dialogo = new JDialog(owner, "Formulario incompleto", JDialog.ModalityType.APPLICATION_MODAL);
+        DialogoInterno dialogo = new DialogoInterno(owner, "Formulario incompleto", java.awt.Dialog.ModalityType.APPLICATION_MODAL);
         dialogo.setUndecorated(true);
-        dialogo.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialogo.setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
 
         JPanel raiz = new JPanel(new BorderLayout(0, 0));
         raiz.setBackground(fondo);
@@ -301,6 +315,12 @@ public class VehiculoPresenter {
             cargarVehiculos();
             return;
         }
+        if (!puedeGestionar(vehiculo)) {
+            MensajeRentCar.mostrar(view, "Este vehículo pertenece a otra cuenta. Solo puedes modificar los que tú publicaste.",
+                    "Sin permiso", JOptionPane.WARNING_MESSAGE);
+            cargarVehiculos();
+            return;
+        }
         placaEditando = vehiculo.getPlaca();
         view.cargarVehiculoEnFormulario(vehiculo);
     }
@@ -321,7 +341,7 @@ public class VehiculoPresenter {
 
             @Override
             protected List<Vehiculo> doInBackground() {
-                return dao.listar();
+                return dao.listarGestion(idUsuario(), esAdmin());
             }
 
             @Override
@@ -409,13 +429,21 @@ public class VehiculoPresenter {
             return;
         }
 
+        Vehiculo objetivo = dao.buscarPorPlaca(placa);
+        if (objetivo != null && !puedeGestionar(objetivo)) {
+            MensajeRentCar.mostrar(view, "Este vehículo pertenece a otra cuenta. Solo puedes eliminar los que tú publicaste.",
+                    "Sin permiso", JOptionPane.WARNING_MESSAGE);
+            cargarVehiculos();
+            return;
+        }
+
         // Confirmación con una ventana personalizada acorde al diseño de RentCar.
         if (!confirmarEliminacion(placa)) {
             return;
         }
 
         // Eliminar de la base de datos
-        boolean eliminado = dao.eliminar(placa);
+        boolean eliminado = dao.eliminar(placa, idUsuario(), esAdmin());
 
         if (eliminado) {
             if (placaEditando != null && placaEditando.equalsIgnoreCase(placa)) {
@@ -453,9 +481,9 @@ public class VehiculoPresenter {
         final Color rojoHover = new Color(255, 45, 38);
 
         Window owner = SwingUtilities.getWindowAncestor(view);
-        JDialog dialogo = new JDialog(owner, "Confirmar eliminación", JDialog.ModalityType.APPLICATION_MODAL);
+        DialogoInterno dialogo = new DialogoInterno(owner, "Confirmar eliminación", java.awt.Dialog.ModalityType.APPLICATION_MODAL);
         dialogo.setUndecorated(true);
-        dialogo.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialogo.setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         dialogo.setSize(450, 245);
         dialogo.setMinimumSize(new Dimension(450, 245));
 
@@ -550,6 +578,24 @@ public class VehiculoPresenter {
             @Override public void mouseExited(MouseEvent e) { boton.setBackground(normal); }
         });
         return boton;
+    }
+
+    // =========================================================
+    // PROPIEDAD DE LOS VEHÍCULOS
+    // =========================================================
+
+    private int idUsuario() {
+        return usuarioLogueado == null ? -1 : usuarioLogueado.getId();
+    }
+
+    private boolean esAdmin() {
+        return usuarioLogueado != null && usuarioLogueado.esAdmin();
+    }
+
+    /** Un usuario solo gestiona sus propios vehículos; el administrador gestiona todos. */
+    private boolean puedeGestionar(Vehiculo v) {
+        return usuarioLogueado != null
+                && (usuarioLogueado.esAdmin() || (v.getPropietarioId() > 0 && v.getPropietarioId() == usuarioLogueado.getId()));
     }
 
     // =========================================================

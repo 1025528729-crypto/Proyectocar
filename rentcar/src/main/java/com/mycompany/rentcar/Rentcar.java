@@ -1,7 +1,7 @@
 package com.mycompany.rentcar;
 
-import com.mycompany.rentcar.presenter.MainPublicPresenter;
-import com.mycompany.rentcar.view.MainPublicView;
+import com.mycompany.rentcar.view.AppFrame;
+import com.mycompany.rentcar.view.BotonRentCarUI;
 import javax.swing.SwingUtilities;
 
 public class Rentcar {
@@ -11,10 +11,8 @@ public class Rentcar {
         com.mycompany.rentcar.config.Conexion.precalentar();
 
         SwingUtilities.invokeLater(() -> {
-            // Inicia la vista pública accesible para cualquier persona
-            MainPublicView publicView = new MainPublicView();
-            new MainPublicPresenter(publicView);
-            publicView.setVisible(true);
+            BotonRentCarUI.instalar();              // estilo común de todos los botones
+            new AppFrame().setVisible(true);        // la única ventana del programa
         });
     }
 }

@@ -13,9 +13,9 @@ import java.util.Locale;
  */
 public final class MensajeRentCar {
 
-    private static final Color VERDE = new Color(22, 163, 74);
-    private static final Color AMBAR = new Color(234, 138, 8);
-    private static final Color AZUL = new Color(37, 99, 235);
+    private static Color VERDE = TemaRentCar.c(22, 163, 74);
+    private static Color AMBAR = TemaRentCar.c(234, 138, 8);
+    private static Color AZUL = TemaRentCar.c(37, 99, 235);
 
     private enum Clase { EXITO, INFO, AVISO, ERROR }
 
@@ -56,7 +56,7 @@ public final class MensajeRentCar {
                 : clase == Clase.ERROR ? TemaRentCar.ROJO : AZUL;
 
         Window dueño = padre == null ? null : (padre instanceof Window ? (Window) padre : SwingUtilities.getWindowAncestor(padre));
-        JDialog dialogo = new JDialog(dueño, titulo == null ? "RentCar" : titulo, Dialog.ModalityType.APPLICATION_MODAL);
+        DialogoInterno dialogo = new DialogoInterno(dueño, titulo == null ? "RentCar" : titulo, Dialog.ModalityType.APPLICATION_MODAL);
         dialogo.setUndecorated(true);
         dialogo.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
 
@@ -170,7 +170,7 @@ public final class MensajeRentCar {
         dialogo.setVisible(true);
     }
 
-    private static JButton crearCerrar(JDialog dialogo) {
+    private static JButton crearCerrar(DialogoInterno dialogo) {
         JButton b = new JButton() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -220,5 +220,12 @@ public final class MensajeRentCar {
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         b.getModel().addChangeListener(e -> b.repaint());
         return b;
+    }
+
+    /** Vuelve a calcular la paleta cuando cambia el tema claro/oscuro. */
+    static void refrescarPaleta() {
+        VERDE = TemaRentCar.c(22, 163, 74);
+        AMBAR = TemaRentCar.c(234, 138, 8);
+        AZUL = TemaRentCar.c(37, 99, 235);
     }
 }

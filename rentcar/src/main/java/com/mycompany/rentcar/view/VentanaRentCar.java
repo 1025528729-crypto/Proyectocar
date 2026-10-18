@@ -8,10 +8,10 @@ import java.awt.event.MouseEvent;
 
 /** Barra superior personalizada para las ventanas principales de RentCar. */
 public final class VentanaRentCar {
-    private static final Color FONDO = new Color(242, 244, 248);
-    private static final Color TEXTO = new Color(23, 27, 34);
-    private static final Color ROJO = new Color(224, 43, 49);
-    private static final Color HOVER = new Color(211, 217, 226);
+    private static Color FONDO = TemaRentCar.c(242, 244, 248);
+    private static Color TEXTO = TemaRentCar.c(23, 27, 34);
+    private static Color ROJO = TemaRentCar.c(224, 43, 49);
+    private static Color HOVER = TemaRentCar.c(211, 217, 226);
 
     private VentanaRentCar() { }
 
@@ -23,7 +23,7 @@ public final class VentanaRentCar {
 
         JPanel raiz = new JPanel(new BorderLayout());
         raiz.setBackground(FONDO);
-        raiz.setBorder(BorderFactory.createLineBorder(new Color(211, 217, 226)));
+        raiz.setBorder(BorderFactory.createLineBorder(TemaRentCar.c(211, 217, 226)));
 
         JPanel barra = new JPanel(new BorderLayout());
         barra.setBackground(FONDO);
@@ -133,5 +133,13 @@ public final class VentanaRentCar {
         boton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         boton.getModel().addChangeListener(e -> boton.repaint());
         return boton;
+    }
+
+    /** Vuelve a calcular la paleta cuando cambia el tema claro/oscuro. */
+    static void refrescarPaleta() {
+        FONDO = TemaRentCar.c(242, 244, 248);
+        TEXTO = TemaRentCar.c(23, 27, 34);
+        ROJO = TemaRentCar.c(224, 43, 49);
+        HOVER = TemaRentCar.c(211, 217, 226);
     }
 }

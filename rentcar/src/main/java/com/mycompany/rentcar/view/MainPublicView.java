@@ -27,14 +27,13 @@ import java.util.Set;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainPublicView extends JFrame {
+public class MainPublicView extends JPanel {
 
     // =========================================================
     // COMPONENTES DEL PRESENTER
     // =========================================================
     private JComboBox<MarcaItem> comboMarcas;
     private JButton btnVerTodos;
-    private JButton btnLogin;
 
     private DefaultTableModel tableModel;
     private JTable tablaDatos;
@@ -76,32 +75,27 @@ public class MainPublicView extends JFrame {
     // =========================================================
     // COLORES
     // =========================================================
-    private static final Color COLOR_FONDO = new Color(242, 244, 248);
-    private static final Color COLOR_HEADER = new Color(255, 255, 255);
-    private static final Color COLOR_PANEL = new Color(238, 241, 246);
-    private static final Color COLOR_CARD = new Color(238, 241, 246);
-    private static final Color COLOR_CAMPO = new Color(230, 234, 241);
-    private static final Color COLOR_BORDE = new Color(211, 217, 226);
-    private static final Color COLOR_TEXTO = new Color(23, 27, 34);
-    private static final Color COLOR_SECUNDARIO = new Color(98, 105, 118);
-    private static final Color COLOR_ROJO = new Color(224, 43, 49);
-    private static final Color COLOR_ROJO_HOVER = new Color(244, 61, 68);
-    private static final Color COLOR_VERDE = new Color(35, 67, 54);
+    private static Color COLOR_FONDO = TemaRentCar.c(242, 244, 248);
+    private static Color COLOR_HEADER = TemaRentCar.c(255, 255, 255);
+    private static Color COLOR_PANEL = TemaRentCar.c(238, 241, 246);
+    private static Color COLOR_CARD = TemaRentCar.c(238, 241, 246);
+    private static Color COLOR_CAMPO = TemaRentCar.c(230, 234, 241);
+    private static Color COLOR_BORDE = TemaRentCar.c(211, 217, 226);
+    private static Color COLOR_TEXTO = TemaRentCar.c(23, 27, 34);
+    private static Color COLOR_SECUNDARIO = TemaRentCar.c(98, 105, 118);
+    private static Color COLOR_ROJO = TemaRentCar.c(224, 43, 49);
+    private static Color COLOR_ROJO_HOVER = TemaRentCar.c(244, 61, 68);
+    private static Color COLOR_VERDE = TemaRentCar.c(35, 67, 54);
 
     // =========================================================
     // CONSTRUCTOR
     // =========================================================
     public MainPublicView() {
+        super(new BorderLayout());
         aplicarTemaMenus();
-        setTitle("RentCar - Catálogo de Vehículos");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setMinimumSize(new Dimension(1100, 720));
-        setExtendedState(JFrame.MAXIMIZED_BOTH);
         crearModelo();
         crearInterfaz();
         escucharModelo();
-        VentanaRentCar.instalar(this);
-        setLocationRelativeTo(null);
     }
 
     // =========================================================
@@ -126,58 +120,8 @@ public class MainPublicView extends JFrame {
     private void crearInterfaz() {
         JPanel principal = new JPanel(new BorderLayout());
         principal.setBackground(COLOR_FONDO);
-        principal.add(crearHeader(), BorderLayout.NORTH);
         principal.add(crearContenido(), BorderLayout.CENTER);
-        setContentPane(principal);
-    }
-
-    // =========================================================
-    // HEADER
-    // =========================================================
-    private JPanel crearHeader() {
-        JPanel header = new JPanel(new BorderLayout());
-        header.setBackground(COLOR_HEADER);
-        header.setPreferredSize(new Dimension(0, 125));
-        header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, COLOR_BORDE));
-
-        JPanel izquierda = new JPanel(new FlowLayout(FlowLayout.LEFT, 30, 17));
-        izquierda.setOpaque(false);
-        izquierda.setBorder(BorderFactory.createEmptyBorder(10, 25, 10, 25));
-        izquierda.add(crearLogo());
-        izquierda.add(crearNav("Vehículos", true));
-        izquierda.add(crearNav("Mis reservas", false));
-        izquierda.add(crearNav("Ayuda", false));
-        header.add(izquierda, BorderLayout.WEST);
-
-        JPanel derecha = new JPanel(new FlowLayout(FlowLayout.RIGHT, 18, 38));
-        derecha.setOpaque(false);
-
-        JLabel ubicacion = new JLabel("⌖ Colombia");
-        ubicacion.setForeground(COLOR_SECUNDARIO);
-        ubicacion.setFont(new Font("SansSerif", Font.PLAIN, 11));
-        derecha.add(ubicacion);
-
-        btnLogin = new JButton("INICIAR SESIÓN");
-        btnLogin.setForeground(Color.WHITE);
-        btnLogin.setBackground(COLOR_ROJO);
-        btnLogin.setFont(new Font("SansSerif", Font.BOLD, 11));
-        btnLogin.setFocusPainted(false);
-        btnLogin.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btnLogin.setBorder(BorderFactory.createEmptyBorder(13, 22, 13, 22));
-        agregarHover(btnLogin);
-        derecha.add(btnLogin);
-
-        JLabel usuario = new JLabel("JD", SwingConstants.CENTER);
-        usuario.setOpaque(true);
-        usuario.setBackground(COLOR_CAMPO);
-        usuario.setForeground(COLOR_TEXTO);
-        usuario.setFont(new Font("SansSerif", Font.BOLD, 12));
-        usuario.setPreferredSize(new Dimension(40, 40));
-        usuario.setBorder(BorderFactory.createLineBorder(COLOR_BORDE));
-        derecha.add(usuario);
-
-        header.add(derecha, BorderLayout.EAST);
-        return header;
+        add(principal, BorderLayout.CENTER);
     }
 
     // =========================================================
@@ -218,37 +162,18 @@ public class MainPublicView extends JFrame {
         logo.setFont(new Font("SansSerif", Font.BOLD, 24));
     }
 
-    // =========================================================
-    // NAVEGACIÓN
-    // =========================================================
-    private JLabel crearNav(String texto, boolean activo) {
-        JLabel label = new JLabel(texto);
-        label.setForeground(activo ? COLOR_TEXTO : COLOR_SECUNDARIO);
-        label.setFont(new Font("SansSerif", activo ? Font.BOLD : Font.PLAIN, 13));
-
-        if (activo) {
-            label.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createMatteBorder(0, 0, 3, 0, COLOR_ROJO),
-                    BorderFactory.createEmptyBorder(18, 6, 15, 6)));
-        } else {
-            label.setBorder(BorderFactory.createEmptyBorder(18, 6, 18, 6));
-        }
-
-        label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        label.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                if (texto.equals("Ayuda")) {
-                    mostrarAyuda();
-                } else if (texto.equals("Mis reservas")) {
-                    mostrarMisReservas();
-                } else if (texto.equals("Vehículos")) {
-                    mostrarSoloFavoritos = false;
-                    actualizarTarjetas();
-                }
-            }
-        });
-        return label;
+    private JButton crearBotonSecundario(String texto, java.awt.event.ActionListener accion) {
+        JButton b = new JButton(texto);
+        b.setFont(new Font("SansSerif", Font.BOLD, 12));
+        b.setForeground(COLOR_TEXTO);
+        b.setBackground(TemaRentCar.PANEL);
+        b.setFocusPainted(false);
+        b.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(COLOR_BORDE),
+                BorderFactory.createEmptyBorder(8, 18, 8, 18)));
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        b.addActionListener(accion);
+        return b;
     }
 
     // =========================================================
@@ -294,6 +219,12 @@ public class MainPublicView extends JFrame {
         textos.add(descripcion);
 
         panel.add(textos, BorderLayout.WEST);
+
+        JPanel acciones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        acciones.setOpaque(false);
+        acciones.add(crearBotonSecundario("Mis reservas", e -> mostrarMisReservas()));
+        acciones.add(crearBotonSecundario("Ayuda", e -> mostrarAyuda()));
+        panel.add(acciones, BorderLayout.EAST);
         return panel;
     }
 
@@ -358,6 +289,7 @@ public class MainPublicView extends JFrame {
         comboLugar.setBackground(COLOR_CAMPO);
         comboLugar.setForeground(COLOR_TEXTO);
         comboLugar.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        TemaRentCar.estilizarCombo(comboLugar);
         panel.add(crearCampoConComponente("Lugar de recogida", comboLugar));
 
         fechaRecogida = sumarDias(new Date(), 1);
@@ -388,7 +320,7 @@ public class MainPublicView extends JFrame {
                 BorderFactory.createEmptyBorder(6, 8, 6, 8)));
 
         JLabel label = new JLabel(titulo);
-        label.setForeground(new Color(23, 27, 34));
+        label.setForeground(TemaRentCar.c(23, 27, 34));
         label.setFont(new Font("SansSerif", Font.PLAIN, 11));
 
         panel.add(label, BorderLayout.NORTH);
@@ -410,9 +342,9 @@ public class MainPublicView extends JFrame {
     // UTILIDADES DE ESTILO Y TEXTO
     // =========================================================
     private void estilizarBarraDesplazamiento(JScrollPane scroll) {
-        Color pista = new Color(255, 255, 255);
-        Color pulgar = new Color(183, 183, 187);
-        Color acento = new Color(224, 43, 49);
+        Color pista = TemaRentCar.c(255, 255, 255);
+        Color pulgar = TemaRentCar.c(183, 183, 187);
+        Color acento = TemaRentCar.c(224, 43, 49);
         for (JScrollBar barra : new JScrollBar[]{scroll.getVerticalScrollBar(), scroll.getHorizontalScrollBar()}) {
             barra.setBackground(pista);
             barra.setForeground(pulgar);
@@ -470,10 +402,10 @@ public class MainPublicView extends JFrame {
     }
 
     private void aplicarTemaMenus() {
-        Color fondo = new Color(238, 241, 246);
-        Color campo = new Color(230, 234, 241);
-        Color texto = new Color(23, 27, 34);
-        Color acento = new Color(224, 43, 49);
+        Color fondo = TemaRentCar.c(238, 241, 246);
+        Color campo = TemaRentCar.c(230, 234, 241);
+        Color texto = TemaRentCar.c(23, 27, 34);
+        Color acento = TemaRentCar.c(224, 43, 49);
         UIManager.put("MenuBar.background", fondo);
         UIManager.put("MenuBar.foreground", texto);
         UIManager.put("Menu.background", fondo);
@@ -489,8 +421,8 @@ public class MainPublicView extends JFrame {
         UIManager.put("ComboBox.foreground", texto);
         UIManager.put("List.background", campo);
         UIManager.put("List.foreground", texto);
-        UIManager.put("ScrollBar.thumb", new Color(183, 183, 187));
-        UIManager.put("ScrollBar.track", new Color(255, 255, 255));
+        UIManager.put("ScrollBar.thumb", TemaRentCar.c(183, 183, 187));
+        UIManager.put("ScrollBar.track", TemaRentCar.c(255, 255, 255));
     }
 
     private String[] obtenerLugaresColombia() {
@@ -829,7 +761,7 @@ public class MainPublicView extends JFrame {
             boolean activo = isSelected();
             boolean hover = getModel().isRollover();
             Color fondo = activo ? (hover ? COLOR_ROJO_HOVER : COLOR_ROJO)
-                    : (hover ? new Color(211, 217, 226) : COLOR_CAMPO);
+                    : (hover ? TemaRentCar.c(211, 217, 226) : COLOR_CAMPO);
             g2.setColor(fondo);
             g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
             g2.setColor(activo ? COLOR_ROJO : (hover ? COLOR_SECUNDARIO : COLOR_BORDE));
@@ -916,7 +848,7 @@ public class MainPublicView extends JFrame {
         dialog.setVisible(true);
     }
 
-    private class CalendarioDialog extends JDialog {
+    private class CalendarioDialog extends DialogoInterno {
 
         private Calendar calendario;
         private JLabel lblMes;
@@ -926,7 +858,7 @@ public class MainPublicView extends JFrame {
         private final SimpleDateFormat formatoMes
                 = new SimpleDateFormat("MMMM yyyy", new Locale("es", "CO"));
 
-        CalendarioDialog(Frame parent, Date fecha, boolean esRecogida) {
+        CalendarioDialog(Component parent, Date fecha, boolean esRecogida) {
             super(parent, "Seleccionar fecha", true);
             setUndecorated(true);
             seleccionInicial = fecha;
@@ -980,7 +912,7 @@ public class MainPublicView extends JFrame {
 
             JPanel raiz = new JPanel(new BorderLayout());
             raiz.setBackground(COLOR_PANEL);
-            raiz.setBorder(BorderFactory.createLineBorder(new Color(211, 217, 226)));
+            raiz.setBorder(BorderFactory.createLineBorder(TemaRentCar.c(211, 217, 226)));
             raiz.add(crearBarraDialogo(this, "Seleccionar fecha"), BorderLayout.NORTH);
             raiz.add(principal, BorderLayout.CENTER);
             setContentPane(raiz);
@@ -1356,7 +1288,7 @@ public class MainPublicView extends JFrame {
         // ---------------- IMAGEN ----------------
         JPanel panelImagen = new JPanel();
         panelImagen.setLayout(new OverlayLayout(panelImagen));
-        panelImagen.setBackground(new Color(230, 234, 241));
+        panelImagen.setBackground(TemaRentCar.c(230, 234, 241));
         panelImagen.setPreferredSize(new Dimension(300, 205));
 
         BufferedImage imagenOriginal = cargarImagenOriginal(foto);
@@ -1375,8 +1307,8 @@ public class MainPublicView extends JFrame {
 
         JLabel estado = new JLabel(disponible ? "● Disponible" : "● No disponible");
         estado.setOpaque(true);
-        estado.setBackground(disponible ? COLOR_VERDE : new Color(85, 38, 38));
-        estado.setForeground(new Color(185, 235, 205));
+        estado.setBackground(disponible ? COLOR_VERDE : TemaRentCar.c(85, 38, 38));
+        estado.setForeground(TemaRentCar.c(185, 235, 205));
         estado.setFont(new Font("SansSerif", Font.BOLD, 9));
         estado.setBorder(BorderFactory.createEmptyBorder(5, 8, 5, 8));
 
@@ -1387,7 +1319,7 @@ public class MainPublicView extends JFrame {
 
         JButton favorito = new JButton("♡");
         favorito.setForeground(COLOR_TEXTO);
-        favorito.setBackground(new Color(238, 241, 246));
+        favorito.setBackground(TemaRentCar.c(238, 241, 246));
         favorito.setFont(new Font("SansSerif", Font.BOLD, 20));
         favorito.setFocusPainted(false);
         favorito.setBorder(BorderFactory.createLineBorder(COLOR_BORDE));
@@ -1488,7 +1420,7 @@ public class MainPublicView extends JFrame {
                 "Año  " + valorFila(filaModelo, 6, "—")
                 + "     ·     " + valorFila(filaModelo, 7, "Color no indicado")
                 + "     ·     " + valorFila(filaModelo, 14, "Ubicación no indicada"));
-        datosAdicionales.setForeground(new Color(23, 27, 34));
+        datosAdicionales.setForeground(TemaRentCar.c(23, 27, 34));
         datosAdicionales.setFont(new Font("SansSerif", Font.PLAIN, 15));
         datosAdicionales.setHorizontalAlignment(SwingConstants.CENTER);
         datosAdicionales.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -1569,9 +1501,9 @@ public class MainPublicView extends JFrame {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(247, 207, 43));
+                g2.setColor(TemaRentCar.c(247, 207, 43));
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                g2.setColor(new Color(238, 241, 246));
+                g2.setColor(TemaRentCar.c(238, 241, 246));
                 g2.setStroke(new BasicStroke(1.5f));
                 g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 7, 7);
                 g2.dispose();
@@ -1585,12 +1517,12 @@ public class MainPublicView extends JFrame {
 
         JLabel pais = new JLabel("COLOMBIA");
         pais.setHorizontalAlignment(SwingConstants.CENTER);
-        pais.setForeground(new Color(45, 45, 45));
+        pais.setForeground(TemaRentCar.c(45, 45, 45));
         pais.setFont(new Font("SansSerif", Font.BOLD, 7));
 
         JLabel numero = new JLabel(placa == null ? "---" : placa.toUpperCase(Locale.ROOT));
         numero.setHorizontalAlignment(SwingConstants.CENTER);
-        numero.setForeground(new Color(20, 20, 20));
+        numero.setForeground(TemaRentCar.c(20, 20, 20));
         numero.setFont(new Font("Monospaced", Font.BOLD, 19));
 
         placaPanel.add(pais, BorderLayout.NORTH);
@@ -1610,7 +1542,7 @@ public class MainPublicView extends JFrame {
                 if (getIcon() != null) {
                     Graphics2D g2 = (Graphics2D) g.create();
                     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setColor(new Color(24, 26, 32));
+                    g2.setColor(TemaRentCar.c(24, 26, 32));
                     g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
                     g2.dispose();
                 }
@@ -1822,7 +1754,7 @@ public class MainPublicView extends JFrame {
 
             BufferedImage original = null;
             if (archivo != null && archivo.isFile()) {
-                original = leerImagenReducida(archivo, 1000);
+                original = leerImagenReducida(archivo, 2000);
             }
 
             // También permite imágenes guardadas dentro de resources.
@@ -1904,7 +1836,7 @@ public class MainPublicView extends JFrame {
             setVerticalAlignment(SwingConstants.CENTER);
             setOpaque(true);
             setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
-            setBackground(new Color(230, 234, 241));
+            setBackground(TemaRentCar.c(230, 234, 241));
         }
 
         @Override
@@ -1912,7 +1844,7 @@ public class MainPublicView extends JFrame {
             super.paintComponent(g);
 
             if (imagen == null) {
-                g.setColor(new Color(98, 105, 118));
+                g.setColor(TemaRentCar.c(98, 105, 118));
                 g.setFont(new Font("SansSerif", Font.BOLD, 12));
                 String texto = "SIN FOTO";
                 FontMetrics fm = g.getFontMetrics();
@@ -1934,24 +1866,34 @@ public class MainPublicView extends JFrame {
             int x = (ancho - nuevoAncho) / 2;
             int y = (alto - nuevoAlto) / 2;
 
-            // El escalado de calidad es costoso: se hace una vez por tamaño y se guarda
-            if (escalada == null || escaladaAncho != ancho || escaladaAlto != alto) {
+            // Se escala a la resolución REAL de la pantalla (125 %, 150 %...) y por pasos: nítida, no pixelada
+            Graphics2D g2d = (Graphics2D) g;
+            java.awt.geom.AffineTransform at = g2d.getTransform();
+            double sx = at.getScaleX() > 0 ? at.getScaleX() : 1;
+            double sy = at.getScaleY() > 0 ? at.getScaleY() : 1;
+            int pw = (int) Math.round(ancho * sx);
+            int ph = (int) Math.round(alto * sy);
 
-                BufferedImage nueva = new BufferedImage(ancho, alto, BufferedImage.TYPE_INT_RGB);
+            if (escalada == null || escaladaAncho != pw || escaladaAlto != ph) {
+                double esc = Math.max((double) pw / imagen.getWidth(), (double) ph / imagen.getHeight());
+                int nw = (int) Math.ceil(imagen.getWidth() * esc);
+                int nh = (int) Math.ceil(imagen.getHeight() * esc);
+                BufferedImage base = TemaRentCar.escalar(imagen, nw, nh);
+                BufferedImage nueva = new BufferedImage(pw, ph, BufferedImage.TYPE_INT_RGB);
                 Graphics2D gi = nueva.createGraphics();
                 gi.setColor(getBackground());
-                gi.fillRect(0, 0, ancho, alto);
-                gi.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-                gi.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-                gi.drawImage(imagen, x, y, nuevoAncho, nuevoAlto, null);
+                gi.fillRect(0, 0, pw, ph);
+                gi.drawImage(base, (pw - nw) / 2, (ph - nh) / 2, null);
                 gi.dispose();
-
                 escalada = nueva;
-                escaladaAncho = ancho;
-                escaladaAlto = alto;
+                escaladaAncho = pw;
+                escaladaAlto = ph;
             }
 
-            g.drawImage(escalada, 0, 0, null);
+            Graphics2D g3 = (Graphics2D) g2d.create();
+            g3.scale(1.0 / sx, 1.0 / sy);
+            g3.drawImage(escalada, 0, 0, null);
+            g3.dispose();
         }
     }
 
@@ -1996,7 +1938,7 @@ public class MainPublicView extends JFrame {
     // =========================================================
     private JLabel crearCaracteristica(String texto) {
         JLabel label = new JLabel(texto);
-        label.setForeground(new Color(23, 27, 34));
+        label.setForeground(TemaRentCar.c(23, 27, 34));
         label.setFont(new Font("SansSerif", Font.BOLD, 14));
         label.setHorizontalAlignment(SwingConstants.CENTER);
         label.setToolTipText(texto);
@@ -2058,7 +2000,7 @@ public class MainPublicView extends JFrame {
     // =========================================================
     private void mostrarDetalles(String marca, String modelo, String placa, Object precio, int filaModelo) {
 
-        JDialog dialog = new JDialog(this, "Detalles del vehículo", true);
+        DialogoInterno dialog = new DialogoInterno(this, "Detalles del vehículo", true);
         dialog.setUndecorated(true);
         dialog.setResizable(false);
 
@@ -2079,7 +2021,7 @@ public class MainPublicView extends JFrame {
      * Contenido completo de la ventana de detalles: barra superior con el
      * mismo diseño de las demás ventanas, foto del vehículo y su ficha.
      */
-    private JPanel construirPanelDetalles(JDialog dialog, String marca, String modelo,
+    private JPanel construirPanelDetalles(DialogoInterno dialog, String marca, String modelo,
             String placa, Object precio, int filaModelo) {
 
         boolean moto = valorFila(filaModelo, 5, "AUTO").equalsIgnoreCase("MOTO");
@@ -2087,7 +2029,7 @@ public class MainPublicView extends JFrame {
 
         JPanel raiz = new JPanel(new BorderLayout());
         raiz.setBackground(COLOR_PANEL);
-        raiz.setBorder(BorderFactory.createLineBorder(new Color(211, 217, 226)));
+        raiz.setBorder(BorderFactory.createLineBorder(TemaRentCar.c(211, 217, 226)));
 
         raiz.add(crearBarraDialogo(dialog, "Detalles del vehículo"), BorderLayout.NORTH);
 
@@ -2104,13 +2046,13 @@ public class MainPublicView extends JFrame {
 
         JPanel panelFoto = new JPanel();
         panelFoto.setLayout(new OverlayLayout(panelFoto));
-        panelFoto.setBackground(new Color(230, 234, 241));
+        panelFoto.setBackground(TemaRentCar.c(230, 234, 241));
 
         // Estado encima de la foto (se agrega primero para quedar arriba)
         JLabel estado = new JLabel(disponible ? "● Disponible" : "● No disponible");
         estado.setOpaque(true);
-        estado.setBackground(disponible ? COLOR_VERDE : new Color(85, 38, 38));
-        estado.setForeground(new Color(185, 235, 205));
+        estado.setBackground(disponible ? COLOR_VERDE : TemaRentCar.c(85, 38, 38));
+        estado.setForeground(TemaRentCar.c(185, 235, 205));
         estado.setFont(new Font("SansSerif", Font.BOLD, 12));
         estado.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
 
@@ -2304,9 +2246,9 @@ public class MainPublicView extends JFrame {
     }
 
     /** Barra superior idéntica a la de las demás ventanas (RENTCAR · título + botón cerrar). */
-    private JPanel crearBarraDialogo(JDialog dialog, String tituloVentana) {
+    private JPanel crearBarraDialogo(DialogoInterno dialog, String tituloVentana) {
 
-        Color fondo = new Color(242, 244, 248);
+        Color fondo = TemaRentCar.c(242, 244, 248);
 
         JPanel barra = new JPanel(new BorderLayout());
         barra.setBackground(fondo);
@@ -2314,7 +2256,7 @@ public class MainPublicView extends JFrame {
         barra.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, COLOR_ROJO));
 
         JLabel titulo = new JLabel("  RENTCAR  ·  " + tituloVentana);
-        titulo.setForeground(new Color(23, 27, 34));
+        titulo.setForeground(TemaRentCar.c(23, 27, 34));
         titulo.setFont(new Font("SansSerif", Font.BOLD, 12));
         titulo.setBorder(new EmptyBorder(0, 7, 0, 0));
         barra.add(titulo, BorderLayout.CENTER);
@@ -2326,7 +2268,7 @@ public class MainPublicView extends JFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(COLOR_ROJO);
                 g2.fillRect(0, 0, getWidth(), getHeight());
-                g2.setColor(new Color(23, 27, 34));
+                g2.setColor(TemaRentCar.c(23, 27, 34));
                 g2.setStroke(new BasicStroke(1.7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                 int cx = getWidth() / 2;
                 int cy = getHeight() / 2;
@@ -2580,14 +2522,14 @@ public class MainPublicView extends JFrame {
     }
 
     /** Ventana modal sin marco nativo: barra RENTCAR + cuerpo. */
-    private JDialog crearDialogoRentCar(Window owner, String titulo, int ancho, int alto, JPanel cuerpo) {
-        JDialog dialog = new JDialog(owner, titulo, Dialog.ModalityType.APPLICATION_MODAL);
+    private DialogoInterno crearDialogoRentCar(Object owner, String titulo, int ancho, int alto, JPanel cuerpo) {
+        DialogoInterno dialog = new DialogoInterno(owner, titulo, Dialog.ModalityType.APPLICATION_MODAL);
         dialog.setUndecorated(true);
         dialog.setResizable(false);
 
         JPanel raiz = new JPanel(new BorderLayout());
         raiz.setBackground(COLOR_PANEL);
-        raiz.setBorder(BorderFactory.createLineBorder(new Color(211, 217, 226)));
+        raiz.setBorder(BorderFactory.createLineBorder(TemaRentCar.c(211, 217, 226)));
         raiz.add(crearBarraDialogo(dialog, titulo), BorderLayout.NORTH);
         raiz.add(cuerpo, BorderLayout.CENTER);
 
@@ -2696,7 +2638,7 @@ public class MainPublicView extends JFrame {
 
         cuerpo.add(centro, BorderLayout.CENTER);
 
-        JDialog dialog = crearDialogoRentCar(this, "Solicitar reserva", 620, 585, cuerpo);
+        DialogoInterno dialog = crearDialogoRentCar(this, "Solicitar reserva", 620, 585, cuerpo);
         btnSi.addActionListener(e -> {
             confirmado[0] = true;
             dialog.dispose();
@@ -2714,7 +2656,7 @@ public class MainPublicView extends JFrame {
         mostrarMensajePersonalizado(this, mensaje, titulo);
     }
 
-    private void mostrarMensajePersonalizado(Window owner, String mensaje, String titulo) {
+    private void mostrarMensajePersonalizado(Object owner, String mensaje, String titulo) {
 
         JPanel cuerpo = new JPanel(new BorderLayout(0, 16));
         cuerpo.setOpaque(false);
@@ -2741,7 +2683,7 @@ public class MainPublicView extends JFrame {
         panelBoton.add(btn);
         cuerpo.add(panelBoton, BorderLayout.SOUTH);
 
-        JDialog dialog = crearDialogoRentCar(owner, titulo, 480, 240, cuerpo);
+        DialogoInterno dialog = crearDialogoRentCar(owner, titulo, 480, 240, cuerpo);
         btn.addActionListener(e -> dialog.dispose());
         dialog.getRootPane().setDefaultButton(btn);
         dialog.setVisible(true);
@@ -2777,7 +2719,7 @@ public class MainPublicView extends JFrame {
         panelBoton.add(btn);
         cuerpo.add(panelBoton, BorderLayout.SOUTH);
 
-        JDialog dialog = crearDialogoRentCar(this, "Búsqueda", 580, 420, cuerpo);
+        DialogoInterno dialog = crearDialogoRentCar(this, "Búsqueda", 580, 420, cuerpo);
         btn.addActionListener(e -> dialog.dispose());
         dialog.getRootPane().setDefaultButton(btn);
         dialog.setVisible(true);
@@ -2853,7 +2795,7 @@ public class MainPublicView extends JFrame {
         panelBoton.add(btnCerrar);
         cuerpo.add(panelBoton, BorderLayout.SOUTH);
 
-        JDialog dialog = crearDialogoRentCar(this, "Mis reservas", 800, 640, cuerpo);
+        DialogoInterno dialog = crearDialogoRentCar(this, "Mis reservas", 800, 640, cuerpo);
         btnCerrar.addActionListener(e -> dialog.dispose());
         dialog.getRootPane().setDefaultButton(btnCerrar);
         dialog.setVisible(true);
@@ -2939,7 +2881,7 @@ public class MainPublicView extends JFrame {
     // =========================================================
     private void mostrarAyuda() {
 
-        JDialog dialog = new JDialog(this, "Ayuda", true);
+        DialogoInterno dialog = new DialogoInterno(this, "Ayuda", true);
         dialog.setUndecorated(true);
         dialog.setResizable(false);
 
@@ -2956,11 +2898,11 @@ public class MainPublicView extends JFrame {
         dialog.setVisible(true);
     }
 
-    private JPanel construirPanelAyuda(JDialog dialog) {
+    private JPanel construirPanelAyuda(DialogoInterno dialog) {
 
         JPanel raiz = new JPanel(new BorderLayout());
         raiz.setBackground(COLOR_PANEL);
-        raiz.setBorder(BorderFactory.createLineBorder(new Color(211, 217, 226)));
+        raiz.setBorder(BorderFactory.createLineBorder(TemaRentCar.c(211, 217, 226)));
 
         raiz.add(crearBarraDialogo(dialog, "Ayuda"), BorderLayout.NORTH);
 
@@ -3151,11 +3093,22 @@ public class MainPublicView extends JFrame {
         return btnVerTodos;
     }
 
-    public JButton getBtnLogin() {
-        return btnLogin;
-    }
-
     public DefaultTableModel getTableModel() {
         return tableModel;
+    }
+
+    /** Vuelve a calcular la paleta cuando cambia el tema claro/oscuro. */
+    static void refrescarPaleta() {
+        COLOR_FONDO = TemaRentCar.c(242, 244, 248);
+        COLOR_HEADER = TemaRentCar.c(255, 255, 255);
+        COLOR_PANEL = TemaRentCar.c(238, 241, 246);
+        COLOR_CARD = TemaRentCar.c(238, 241, 246);
+        COLOR_CAMPO = TemaRentCar.c(230, 234, 241);
+        COLOR_BORDE = TemaRentCar.c(211, 217, 226);
+        COLOR_TEXTO = TemaRentCar.c(23, 27, 34);
+        COLOR_SECUNDARIO = TemaRentCar.c(98, 105, 118);
+        COLOR_ROJO = TemaRentCar.c(224, 43, 49);
+        COLOR_ROJO_HOVER = TemaRentCar.c(244, 61, 68);
+        COLOR_VERDE = TemaRentCar.c(35, 67, 54);
     }
 }
