@@ -1,6 +1,9 @@
 package com.mycompany.rentcar.view;
 
 import com.mycompany.rentcar.presenter.MarcaItem;
+import com.mycompany.rentcar.model.Alquiler;
+import com.mycompany.rentcar.model.AlquilerDAO;
+import com.mycompany.rentcar.util.Async;
 import com.mycompany.rentcar.util.FotoVehiculoUtil;
 
 import javax.imageio.ImageIO;
@@ -22,7 +25,9 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.ArrayList;
 import java.util.List;
@@ -68,8 +73,16 @@ public class MainPublicView extends JPanel {
     private JCheckBox chkMoto;
     private JCheckBox chkDeportiva, chkScooter, chkNaked, chkTouring, chkEnduro, chkTrabajo, chkOtra;
     private JCheckBox chkManual, chkAutomatica, chkSemiautomatica;
-    private final Set<String> favoritos = new HashSet<>();
-    private final List<ReservaSesion> reservasSesion = new ArrayList<>();
+    // Los favoritos viven mientras el programa esté abierto (también al cambiar de tema, que reconstruye la ventana)
+    private static final Set<String> favoritos = new HashSet<>();
+
+    // Reservas: placa → primer día en que el vehículo vuelve a estar libre
+    private final Map<String, java.time.LocalDate> reservadas = new HashMap<>();
+    private final Set<String> misReservadas = new HashSet<>();   // reservados por el usuario actual
+    private final Set<String> avisosPedidos = new HashSet<>();   // "avísame cuando esté disponible"
+    private javax.swing.Timer pulsoDisponibilidad;
+    private boolean consultandoDisponibilidad = false;
+    private boolean procesandoAviso = false;
     private boolean mostrarSoloFavoritos = false;
 
     // =========================================================
@@ -1295,9 +1308,9 @@ public class MainPublicView extends JPanel {
         ImagenCoverLabel imagen = new ImagenCoverLabel(imagenOriginal);
         imagen.setAlignmentX(Component.CENTER_ALIGNMENT);
         imagen.setAlignmentY(Component.CENTER_ALIGNMENT);
-        panelImagen.add(imagen);
 
-        // Capa superior: estado y favorito encima de la foto
+        // Capa superior: estado y favorito encima de la foto.
+        // En un OverlayLayout el PRIMER componente queda arriba, por eso esta capa se agrega antes que la foto.
         JPanel controlesImagen = new JPanel(new BorderLayout());
         controlesImagen.setOpaque(false);
         controlesImagen.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -1305,52 +1318,41 @@ public class MainPublicView extends JPanel {
 
         boolean disponible = Boolean.parseBoolean(valorFila(filaModelo, 15, "true"));
 
-        JLabel estado = new JLabel(disponible ? "● Disponible" : "● No disponible");
+        JLabel estado = new JLabel();
         estado.setOpaque(true);
-        estado.setBackground(disponible ? COLOR_VERDE : TemaRentCar.c(85, 38, 38));
-        estado.setForeground(TemaRentCar.c(185, 235, 205));
-        estado.setFont(new Font("SansSerif", Font.BOLD, 9));
-        estado.setBorder(BorderFactory.createEmptyBorder(5, 8, 5, 8));
+        estado.setFont(new Font("SansSerif", Font.BOLD, 10));
+        estado.setBorder(BorderFactory.createEmptyBorder(5, 9, 5, 9));
+        aplicarEstado(estado, disponible, placa);
 
-        JPanel estadoPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 7));
+        JPanel estadoPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
         estadoPanel.setOpaque(false);
         estadoPanel.add(estado);
-        controlesImagen.add(estadoPanel, BorderLayout.NORTH);
 
-        JButton favorito = new JButton("♡");
-        favorito.setForeground(COLOR_TEXTO);
-        favorito.setBackground(TemaRentCar.c(238, 241, 246));
-        favorito.setFont(new Font("SansSerif", Font.BOLD, 20));
-        favorito.setFocusPainted(false);
-        favorito.setBorder(BorderFactory.createLineBorder(COLOR_BORDE));
-        favorito.setPreferredSize(new Dimension(38, 38));
-        favorito.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        if (favoritos.contains(placa)) {
-            favorito.setText("♥");
-            favorito.setForeground(COLOR_ROJO);
-        }
-
+        BotonFavorito favorito = new BotonFavorito(favoritos.contains(placa));
         favorito.addActionListener(e -> {
             if (favoritos.contains(placa)) {
                 favoritos.remove(placa);
-                favorito.setText("♡");
-                favorito.setForeground(COLOR_TEXTO);
             } else {
                 favoritos.add(placa);
-                favorito.setText("♥");
-                favorito.setForeground(COLOR_ROJO);
             }
+            favorito.setActivo(favoritos.contains(placa));
             if (chkFavoritos != null && chkFavoritos.isSelected()) {
                 actualizarTarjetas();
             }
         });
 
-        JPanel favoritoPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 7));
+        JPanel favoritoPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 8));
         favoritoPanel.setOpaque(false);
         favoritoPanel.add(favorito);
-        controlesImagen.add(favoritoPanel, BorderLayout.SOUTH);
+
+        JPanel filaSuperior = new JPanel(new BorderLayout());
+        filaSuperior.setOpaque(false);
+        filaSuperior.add(estadoPanel, BorderLayout.WEST);
+        filaSuperior.add(favoritoPanel, BorderLayout.EAST);
+        controlesImagen.add(filaSuperior, BorderLayout.NORTH);
 
         panelImagen.add(controlesImagen);
+        panelImagen.add(imagen);
         tarjeta.add(panelImagen, BorderLayout.NORTH);
 
         // ---------------- INFORMACIÓN ----------------
@@ -1481,9 +1483,24 @@ public class MainPublicView extends JPanel {
         reservar.setMaximumSize(new Dimension(150, 42));
         reservar.addActionListener(e -> reservarVehiculo(marca, modelo, placa, precio, filaModelo));
 
+        JButton principal = reservar;
+        if (disponible && reservadas.containsKey(placa)) {
+            if (misReservadas.contains(placa)) {
+                principal = crearBotonEstadoReserva("MIS RESERVAS", false);
+                principal.addActionListener(e -> mostrarMisReservas());
+            } else {
+                boolean pedido = avisosPedidos.contains(placa);
+                principal = crearBotonEstadoReserva(pedido ? "✓ AVISO ACTIVO" : "AVISARME", pedido);
+                principal.setToolTipText(pedido
+                        ? "Te notificaremos cuando se desocupe. Toca para cancelar el aviso."
+                        : "Recibe una notificación cuando este vehículo vuelva a estar disponible");
+                principal.addActionListener(e -> alternarAviso(placa, marca, modelo));
+            }
+        }
+
         acciones.add(detalles);
         acciones.add(Box.createVerticalStrut(7));
-        acciones.add(reservar);
+        acciones.add(principal);
         pie.add(acciones);
         informacion.add(pie);
 
@@ -2049,12 +2066,11 @@ public class MainPublicView extends JPanel {
         panelFoto.setBackground(TemaRentCar.c(230, 234, 241));
 
         // Estado encima de la foto (se agrega primero para quedar arriba)
-        JLabel estado = new JLabel(disponible ? "● Disponible" : "● No disponible");
+        JLabel estado = new JLabel();
         estado.setOpaque(true);
-        estado.setBackground(disponible ? COLOR_VERDE : TemaRentCar.c(85, 38, 38));
-        estado.setForeground(TemaRentCar.c(185, 235, 205));
         estado.setFont(new Font("SansSerif", Font.BOLD, 12));
         estado.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+        aplicarEstado(estado, disponible, placa);
 
         JPanel capaEstado = new JPanel(new FlowLayout(FlowLayout.LEFT, 14, 14));
         capaEstado.setOpaque(false);
@@ -2347,7 +2363,8 @@ public class MainPublicView extends JPanel {
             return false;
         }
 
-        if (chkDisponibles != null && chkDisponibles.isSelected() && !Boolean.parseBoolean(valorFila(fila, 15, "true"))) {
+        if (chkDisponibles != null && chkDisponibles.isSelected()
+                && (!Boolean.parseBoolean(valorFila(fila, 15, "true")) || reservadas.containsKey(placa))) {
             return false;
         }
 
@@ -2426,60 +2443,389 @@ public class MainPublicView extends JPanel {
     }
 
     // =========================================================
+    // DISPONIBILIDAD, AVISOS Y FAVORITOS
+    // =========================================================
+
+    private static final java.time.format.DateTimeFormatter FORMATO_CORTO =
+            java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    /** Colorea y escribe la etiqueta de estado: Disponible, Reservado o No disponible. */
+    private void aplicarEstado(JLabel estado, boolean disponible, String placa) {
+        java.time.LocalDate libre = reservadas.get(placa);
+        estado.setForeground(Color.WHITE);
+        if (!disponible) {
+            estado.setText("● No disponible");
+            estado.setBackground(TemaRentCar.c(120, 45, 45));
+        } else if (libre != null) {
+            boolean mia = misReservadas.contains(placa);
+            estado.setText(mia ? "● Reservado por ti" : "● Reservado · libre el " + libre.format(FORMATO_CORTO));
+            estado.setBackground(TemaRentCar.c(146, 88, 12));
+            estado.setToolTipText("Disponible a partir del " + libre.format(FORMATO_CORTO));
+        } else {
+            estado.setText("● Disponible");
+            estado.setBackground(TemaRentCar.c(27, 120, 78));
+        }
+    }
+
+    private String textoReservado(String placa) {
+        java.time.LocalDate libre = reservadas.get(placa);
+        if (misReservadas.contains(placa)) {
+            return "Ya tienes una reserva de este vehículo. Puedes verla o cancelarla en «Mis reservas».";
+        }
+        return "Este vehículo ya está reservado por otra persona"
+                + (libre == null ? "" : " y volverá a estar disponible el " + libre.format(FORMATO_CORTO))
+                + ". Pulsa «Avisarme» y te notificaremos cuando se desocupe.";
+    }
+
+    /** Botón gris (o verde si el aviso ya está activo) que reemplaza a RESERVAR cuando el vehículo está ocupado. */
+    private JButton crearBotonEstadoReserva(String texto, boolean activo) {
+        JButton b = new JButton(texto);
+        b.setFont(new Font("SansSerif", Font.BOLD, 11));
+        b.setForeground(activo ? Color.WHITE : COLOR_TEXTO);
+        b.setBackground(activo ? TemaRentCar.c(27, 120, 78) : COLOR_CAMPO);
+        b.setFocusPainted(false);
+        b.setBorder(BorderFactory.createEmptyBorder(10, 6, 10, 6));
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        b.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        b.setPreferredSize(new Dimension(116, 42));
+        b.setMaximumSize(new Dimension(116, 42));
+        return b;
+    }
+
+    /** Pide (o cancela) el aviso "avísame cuando esté disponible". */
+    private void alternarAviso(String placa, String marca, String modelo) {
+        AppFrame app = AppFrame.getInstancia();
+        com.mycompany.rentcar.model.Usuario usuario = app == null ? null : app.getUsuario();
+        if (usuario == null) {
+            pedirInicioSesion("Inicia sesión para que te avisemos cuando este vehículo vuelva a estar disponible.");
+            return;
+        }
+        if (procesandoAviso) {
+            return;
+        }
+        procesandoAviso = true;
+        final int usuarioId = usuario.getId();
+        final boolean quitar = avisosPedidos.contains(placa);
+        final String nombre = ((marca == null ? "" : marca) + " " + (modelo == null ? "" : modelo)).trim();
+        Async.run(
+                () -> quitar ? new AlquilerDAO().quitarAviso(usuarioId, placa) : new AlquilerDAO().pedirAviso(usuarioId, placa),
+                error -> {
+                    procesandoAviso = false;
+                    if (error != null) {
+                        mostrarMensajePersonalizado(error, "Error");
+                        return;
+                    }
+                    if (quitar) {
+                        avisosPedidos.remove(placa);
+                        NotificacionesRentCar.info("Aviso cancelado", "Ya no te avisaremos del " + nombre + ".");
+                    } else {
+                        avisosPedidos.add(placa);
+                        NotificacionesRentCar.exito("Aviso activado",
+                                "Te notificaremos aquí cuando el " + nombre + " vuelva a estar disponible.");
+                    }
+                    actualizarTarjetas();
+                    refrescarDisponibilidad();
+                },
+                ex -> {
+                    procesandoAviso = false;
+                    mostrarMensajePersonalizado("No se pudo conectar con la base de datos. Intenta de nuevo.", "Sin conexión");
+                });
+    }
+
+    /**
+     * Vuelve a leer qué vehículos están reservados y entrega los avisos que ya
+     * se cumplieron. Se llama al abrir el catálogo, al iniciar/cerrar sesión,
+     * al reservar o cancelar y cada medio minuto.
+     */
+    public void refrescarDisponibilidad() {
+        if (consultandoDisponibilidad) {
+            return;
+        }
+        consultandoDisponibilidad = true;
+        AppFrame app = AppFrame.getInstancia();
+        com.mycompany.rentcar.model.Usuario usuario = app == null ? null : app.getUsuario();
+        final int usuarioId = usuario == null ? 0 : usuario.getId();
+
+        Async.run(
+                () -> new AlquilerDAO().leerEstado(usuarioId),
+                estado -> {
+                    consultandoDisponibilidad = false;
+                    if (estado == null) {
+                        return;   // sin conexión: se conserva lo que ya se mostraba
+                    }
+                    AppFrame actual = AppFrame.getInstancia();
+                    com.mycompany.rentcar.model.Usuario u = actual == null ? null : actual.getUsuario();
+                    boolean mismoUsuario = (u == null ? 0 : u.getId()) == usuarioId;
+
+                    if (mismoUsuario) {
+                        for (String[] l : estado.listos) {
+                            String nombre = (l[1] + " " + l[2]).trim();
+                            NotificacionesRentCar.exito(
+                                    "¡Ya está disponible!",
+                                    "El " + nombre + " que estabas esperando ya se puede reservar.\n"
+                                    + "Toca aquí para ir al catálogo.",
+                                    () -> {
+                                        AppFrame a = AppFrame.getInstancia();
+                                        if (a != null) a.mostrar(AppFrame.CATALOGO);
+                                    });
+                        }
+                    }
+
+                    boolean cambio = !estado.libreDesde.equals(reservadas)
+                            || !estado.mias.equals(misReservadas)
+                            || (mismoUsuario && !estado.avisos.equals(avisosPedidos))
+                            || !estado.listos.isEmpty();
+                    reservadas.clear();
+                    reservadas.putAll(estado.libreDesde);
+                    misReservadas.clear();
+                    misReservadas.addAll(estado.mias);
+                    avisosPedidos.clear();
+                    if (mismoUsuario) {
+                        avisosPedidos.addAll(estado.avisos);
+                    }
+                    if (cambio) {
+                        actualizarTarjetas();
+                    }
+                },
+                ex -> consultandoDisponibilidad = false);
+    }
+
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        refrescarDisponibilidad();
+        if (pulsoDisponibilidad == null) {
+            pulsoDisponibilidad = new javax.swing.Timer(30_000, e -> refrescarDisponibilidad());
+        }
+        pulsoDisponibilidad.start();
+    }
+
+    @Override
+    public void removeNotify() {
+        if (pulsoDisponibilidad != null) {
+            pulsoDisponibilidad.stop();
+        }
+        super.removeNotify();
+    }
+
+    /** Corazón sobre la foto: círculo claro con un corazón dibujado (relleno si es favorito). */
+    private static final class BotonFavorito extends JComponent {
+        private boolean activo;
+        private boolean encima;
+
+        BotonFavorito(boolean activo) {
+            this.activo = activo;
+            setPreferredSize(new Dimension(40, 40));
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            setToolTipText(activo ? "Quitar de favoritos" : "Agregar a favoritos");
+            addMouseListener(new MouseAdapter() {
+                @Override public void mouseEntered(MouseEvent e) { encima = true; repaint(); }
+                @Override public void mouseExited(MouseEvent e) { encima = false; repaint(); }
+                @Override public void mouseClicked(MouseEvent e) {
+                    for (java.awt.event.ActionListener l : alAccionar) {
+                        l.actionPerformed(new ActionEvent(BotonFavorito.this, ActionEvent.ACTION_PERFORMED, "favorito"));
+                    }
+                }
+            });
+        }
+
+        private final List<java.awt.event.ActionListener> alAccionar = new ArrayList<>();
+
+        void addActionListener(java.awt.event.ActionListener l) { alAccionar.add(l); }
+
+        void setActivo(boolean a) {
+            activo = a;
+            setToolTipText(a ? "Quitar de favoritos" : "Agregar a favoritos");
+            repaint();
+        }
+
+        @Override protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+            int w = getWidth(), h = getHeight(), d = Math.min(w, h) - 2;
+
+            // Sombra suave para que se vea sobre cualquier foto
+            g2.setColor(new Color(0, 0, 0, 40));
+            g2.fillOval((w - d) / 2, (h - d) / 2 + 1, d, d);
+            g2.setColor(COLOR_HEADER);
+            g2.fillOval((w - d) / 2, (h - d) / 2, d - 1, d - 1);
+            g2.setColor(encima ? COLOR_ROJO : COLOR_BORDE);
+            g2.setStroke(new BasicStroke(1.4f));
+            g2.drawOval((w - d) / 2, (h - d) / 2, d - 1, d - 1);
+
+            double cx = w / 2.0, cy = h / 2.0 + 0.5, s = 8.2;
+            java.awt.geom.Path2D.Double corazon = new java.awt.geom.Path2D.Double();
+            corazon.moveTo(cx, cy + s * 1.05);
+            corazon.curveTo(cx - s * 1.9, cy - s * 0.25, cx - s * 0.95, cy - s * 1.45, cx, cy - s * 0.5);
+            corazon.curveTo(cx + s * 0.95, cy - s * 1.45, cx + s * 1.9, cy - s * 0.25, cx, cy + s * 1.05);
+            corazon.closePath();
+            if (activo) {
+                g2.setColor(COLOR_ROJO);
+                g2.fill(corazon);
+            } else {
+                g2.setColor(encima ? COLOR_ROJO : COLOR_SECUNDARIO);
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.draw(corazon);
+            }
+            g2.dispose();
+        }
+    }
+
+    // =========================================================
     // RESERVAR
     // =========================================================
 
-    /** Reserva solicitada durante la sesión (guarda la foto para mostrarla en "Mis reservas"). */
-    private static class ReservaSesion {
-
-        final String foto, tipo, marca, modelo, placa, lugar, recogida, devolucion, total;
-        final long dias;
-
-        ReservaSesion(String foto, String tipo, String marca, String modelo, String placa,
-                String lugar, String recogida, String devolucion, long dias, String total) {
-            this.foto = foto;
-            this.tipo = tipo;
-            this.marca = marca;
-            this.modelo = modelo;
-            this.placa = placa;
-            this.lugar = lugar;
-            this.recogida = recogida;
-            this.devolucion = devolucion;
-            this.dias = dias;
-            this.total = total;
-        }
-
-        boolean esMoto() {
-            return "MOTO".equalsIgnoreCase(tipo);
-        }
-
-        String duracion() {
-            return dias + (dias == 1 ? " día" : " días");
-        }
-    }
+    // Evita abrir dos formularios (o dos consultas) si el usuario pulsa varias veces
+    private boolean procesandoReserva = false;
+    private boolean cargandoReservas = false;
 
     private void reservarVehiculo(String marca, String modelo, String placa, Object precio, int fila) {
         if (!Boolean.parseBoolean(valorFila(fila, 15, "true"))) {
             mostrarMensajePersonalizado("Este vehículo no está disponible para alquiler.", "No disponible");
             return;
         }
+        if (reservadas.containsKey(placa)) {
+            mostrarMensajePersonalizado(textoReservado(placa), "Vehículo reservado");
+            return;
+        }
+
+        // 1) Hay que haber iniciado sesión
+        AppFrame app = AppFrame.getInstancia();
+        com.mycompany.rentcar.model.Usuario usuario = app == null ? null : app.getUsuario();
+        if (usuario == null) {
+            pedirInicioSesion("Para reservar un vehículo primero debes iniciar sesión o crear una cuenta.");
+            return;
+        }
+        if (procesandoReserva) {
+            return;
+        }
 
         long dias = Math.max(1, (fechaDevolucion.getTime() - fechaRecogida.getTime()) / (24L * 60 * 60 * 1000));
         double precioDia = precio instanceof Number ? ((Number) precio).doubleValue() : 0;
 
-        ReservaSesion reserva = new ReservaSesion(
-                valorFila(fila, 0, ""),
-                valorFila(fila, 5, "AUTO"),
-                marca, modelo, placa,
-                String.valueOf(comboLugar.getSelectedItem()),
-                formatearFecha(fechaRecogida),
-                formatearFecha(fechaDevolucion),
-                dias,
-                formatearPrecio(precioDia * dias));
+        Alquiler base = new Alquiler();
+        base.usuarioId = usuario.getId();
+        base.placa = placa;
+        base.marca = marca;
+        base.modelo = modelo;
+        base.tipo = valorFila(fila, 5, "AUTO");
+        base.foto = valorFila(fila, 0, "");
+        base.lugar = String.valueOf(comboLugar.getSelectedItem());
+        base.recogida = new java.sql.Date(fechaRecogida.getTime()).toLocalDate();
+        base.devolucion = base.recogida.plusDays(dias);
+        base.dias = dias;
+        base.total = precioDia * dias;
 
-        if (mostrarConfirmacionReserva(reserva)) {
-            reservasSesion.add(reserva);
-            mostrarMensajePersonalizado("Solicitud agregada a Mis reservas durante esta sesión.", "Reserva exitosa");
+        // 2) Se revisa en la base de datos que no esté reservado (por ti o por otra persona) en esas fechas
+        procesandoReserva = true;
+        Async.run(
+                () -> new AlquilerDAO().verificarDisponibilidad(base.usuarioId, base.placa, base.recogida, base.devolucion),
+                mensaje -> {
+                    procesandoReserva = false;
+                    if (mensaje != null) {
+                        mostrarMensajePersonalizado(mensaje, "No se puede reservar");
+                    } else {
+                        mostrarFormularioAlquiler(base);   // 3) formulario de datos y pago
+                    }
+                },
+                ex -> {
+                    procesandoReserva = false;
+                    mostrarMensajePersonalizado("No se pudo conectar con la base de datos. Intenta de nuevo.", "Sin conexión");
+                });
+    }
+
+    private void mostrarFormularioAlquiler(Alquiler base) {
+
+        final DialogoInterno[] dialog = new DialogoInterno[1];
+        final FormularioAlquilerPanel[] formulario = new FormularioAlquilerPanel[1];
+
+        formulario[0] = new FormularioAlquilerPanel(base, new FormularioAlquilerPanel.Escucha() {
+            @Override
+            public void confirmar(Alquiler datos) {
+                Async.run(
+                        () -> new AlquilerDAO().crear(datos),
+                        error -> {
+                            if (error == null) {
+                                dialog[0].dispose();
+                                refrescarDisponibilidad();   // el vehículo pasa a "Reservado" para los demás
+                                // Aviso dentro del programa (ya no se abre una ventana)
+                                NotificacionesRentCar.exito(
+                                        "Reserva confirmada",
+                                        (datos.marca + " " + datos.modelo).trim() + "\n"
+                                        + "Del " + formatearFecha(java.sql.Date.valueOf(datos.recogida)) + " al "
+                                        + formatearFecha(java.sql.Date.valueOf(datos.devolucion)) + "\n"
+                                        + "Total: " + formatearPrecio(datos.total) + "  ·  " + datos.descripcionPago() + "\n"
+                                        + "Toca aquí para ver «Mis reservas».",
+                                        MainPublicView.this::mostrarMisReservas);
+                            } else {
+                                formulario[0].mostrarFallo(error);
+                            }
+                        },
+                        ex -> formulario[0].mostrarFallo("No se pudo conectar con la base de datos. Intenta de nuevo."));
+            }
+
+            @Override
+            public void cancelar() {
+                dialog[0].dispose();
+            }
+        });
+        estilizarBarraDesplazamiento(formulario[0].getScroll());
+
+        JPanel cuerpo = new JPanel(new BorderLayout());
+        cuerpo.setOpaque(false);
+        cuerpo.add(formulario[0], BorderLayout.CENTER);
+
+        dialog[0] = crearDialogoRentCar(this, "Rentar vehículo", 700, 740, cuerpo);
+        dialog[0].setVisible(true);
+    }
+
+    /** Aviso con botón para abrir el panel de inicio de sesión. */
+    private void pedirInicioSesion(String motivo) {
+
+        final boolean[] ir = {false};
+
+        JPanel cuerpo = new JPanel(new BorderLayout(0, 16));
+        cuerpo.setOpaque(false);
+        cuerpo.setBorder(BorderFactory.createEmptyBorder(26, 32, 24, 32));
+
+        JLabel lblTitulo = new JLabel("Inicia sesión para continuar");
+        lblTitulo.setForeground(COLOR_TEXTO);
+        lblTitulo.setFont(new Font("SansSerif", Font.BOLD, 22));
+        cuerpo.add(lblTitulo, BorderLayout.NORTH);
+
+        JTextArea txt = new JTextArea(motivo);
+        txt.setEditable(false);
+        txt.setLineWrap(true);
+        txt.setWrapStyleWord(true);
+        txt.setFocusable(false);
+        txt.setOpaque(false);
+        txt.setForeground(COLOR_SECUNDARIO);
+        txt.setFont(new Font("SansSerif", Font.PLAIN, 15));
+        cuerpo.add(txt, BorderLayout.CENTER);
+
+        JButton btnNo = crearBotonSecundario("Ahora no");
+        JButton btnSi = crearBotonPrimario("Iniciar sesión");
+        JPanel botones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        botones.setOpaque(false);
+        botones.add(btnNo);
+        botones.add(btnSi);
+        cuerpo.add(botones, BorderLayout.SOUTH);
+
+        DialogoInterno dialog = crearDialogoRentCar(this, "Inicia sesión", 500, 250, cuerpo);
+        btnNo.addActionListener(e -> dialog.dispose());
+        btnSi.addActionListener(e -> {
+            ir[0] = true;
+            dialog.dispose();
+        });
+        dialog.getRootPane().setDefaultButton(btnSi);
+        dialog.setVisible(true);
+
+        if (ir[0]) {
+            AppFrame app = AppFrame.getInstancia();
+            if (app != null) {
+                app.abrirAcceso();
+            }
         }
     }
 
@@ -2572,84 +2918,6 @@ public class MainPublicView extends JPanel {
         return encabezado;
     }
 
-    // ---------- confirmación de reserva ----------
-
-    private boolean mostrarConfirmacionReserva(ReservaSesion r) {
-
-        final boolean[] confirmado = {false};
-
-        JPanel cuerpo = new JPanel(new BorderLayout());
-        cuerpo.setOpaque(false);
-
-        ImagenCoverLabel foto = new ImagenCoverLabel(cargarImagenOriginal(r.foto));
-        foto.setPreferredSize(new Dimension(0, 200));
-        cuerpo.add(foto, BorderLayout.NORTH);
-
-        JPanel centro = new JPanel(new BorderLayout(0, 14));
-        centro.setOpaque(false);
-        centro.setBorder(BorderFactory.createEmptyBorder(20, 28, 22, 28));
-
-        JPanel fila = new JPanel(new BorderLayout());
-        fila.setOpaque(false);
-        JPanel textos = new JPanel();
-        textos.setOpaque(false);
-        textos.setLayout(new BoxLayout(textos, BoxLayout.Y_AXIS));
-        JLabel tipo = new JLabel((r.esMoto() ? "MOTOCICLETA" : "AUTOMÓVIL") + "  ·  " + r.marca.toUpperCase(Locale.ROOT));
-        tipo.setForeground(COLOR_ROJO_HOVER);
-        tipo.setFont(new Font("SansSerif", Font.BOLD, 12));
-        tipo.setAlignmentX(Component.LEFT_ALIGNMENT);
-        JLabel modelo = new JLabel(r.modelo);
-        modelo.setForeground(COLOR_TEXTO);
-        modelo.setFont(new Font("SansSerif", Font.BOLD, 22));
-        modelo.setAlignmentX(Component.LEFT_ALIGNMENT);
-        textos.add(tipo);
-        textos.add(Box.createVerticalStrut(4));
-        textos.add(modelo);
-        fila.add(textos, BorderLayout.CENTER);
-        fila.add(crearPlacaColombiana(r.placa), BorderLayout.EAST);
-        centro.add(fila, BorderLayout.NORTH);
-
-        JPanel ficha = new JPanel(new GridLayout(0, 2, 10, 10));
-        ficha.setOpaque(false);
-        ficha.add(crearDatoFicha("LUGAR DE RECOGIDA", r.lugar));
-        ficha.add(crearDatoFicha("FECHAS", r.recogida + " → " + r.devolucion));
-        ficha.add(crearDatoFicha("DURACIÓN", r.duracion()));
-        ficha.add(crearDatoFicha("TOTAL ESTIMADO", r.total));
-        JPanel envolturaFicha = new JPanel(new BorderLayout());
-        envolturaFicha.setOpaque(false);
-        envolturaFicha.add(ficha, BorderLayout.NORTH);
-        centro.add(envolturaFicha, BorderLayout.CENTER);
-
-        JPanel sur = new JPanel(new BorderLayout(0, 14));
-        sur.setOpaque(false);
-        JLabel pregunta = new JLabel("¿Agregar a Mis reservas de esta sesión?");
-        pregunta.setForeground(COLOR_SECUNDARIO);
-        pregunta.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        sur.add(pregunta, BorderLayout.NORTH);
-
-        JButton btnSi = crearBotonPrimario("Sí, agregar");
-        JButton btnNo = crearBotonSecundario("Cancelar");
-        JPanel botones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
-        botones.setOpaque(false);
-        botones.add(btnNo);
-        botones.add(btnSi);
-        sur.add(botones, BorderLayout.SOUTH);
-        centro.add(sur, BorderLayout.SOUTH);
-
-        cuerpo.add(centro, BorderLayout.CENTER);
-
-        DialogoInterno dialog = crearDialogoRentCar(this, "Solicitar reserva", 620, 585, cuerpo);
-        btnSi.addActionListener(e -> {
-            confirmado[0] = true;
-            dialog.dispose();
-        });
-        btnNo.addActionListener(e -> dialog.dispose());
-        dialog.getRootPane().setDefaultButton(btnSi);
-        dialog.setVisible(true);
-
-        return confirmado[0];
-    }
-
     // ---------- mensajes cortos ----------
 
     private void mostrarMensajePersonalizado(String mensaje, String titulo) {
@@ -2729,25 +2997,58 @@ public class MainPublicView extends JPanel {
 
     private void mostrarMisReservas() {
 
+        AppFrame app = AppFrame.getInstancia();
+        com.mycompany.rentcar.model.Usuario usuario = app == null ? null : app.getUsuario();
+        if (usuario == null) {
+            pedirInicioSesion("Inicia sesión para ver las reservas que has hecho.");
+            return;
+        }
+        if (cargandoReservas) {
+            return;
+        }
+        cargandoReservas = true;
+        final int usuarioId = usuario.getId();
+        Async.run(
+                () -> new AlquilerDAO().listarPorUsuario(usuarioId),
+                lista -> {
+                    cargandoReservas = false;
+                    if (lista == null) {
+                        mostrarMensajePersonalizado("No se pudieron cargar tus reservas. Intenta de nuevo.", "Sin conexión");
+                    } else {
+                        mostrarListaReservas(lista, usuarioId);
+                    }
+                },
+                ex -> {
+                    cargandoReservas = false;
+                    mostrarMensajePersonalizado("No se pudo conectar con la base de datos. Intenta de nuevo.", "Sin conexión");
+                });
+    }
+
+    private void mostrarListaReservas(List<Alquiler> reservas, int usuarioId) {
+
         JPanel cuerpo = new JPanel(new BorderLayout(0, 16));
         cuerpo.setOpaque(false);
         cuerpo.setBorder(BorderFactory.createEmptyBorder(26, 32, 24, 32));
 
-        int n = reservasSesion.size();
-        cuerpo.add(crearEncabezadoDialogo("TUS SOLICITUDES", "Mis reservas",
-                n == 0 ? "Aquí aparecerán los vehículos que reserves."
-                        : n + (n == 1 ? " solicitud" : " solicitudes") + " en esta sesión."),
+        int n = 0;
+        for (Alquiler a : reservas) {
+            if ("ACTIVA".equals(a.estado)) n++;
+        }
+        cuerpo.add(crearEncabezadoDialogo("TUS RESERVAS", "Mis reservas",
+                reservas.isEmpty() ? "Aquí aparecerán los vehículos que reserves."
+                        : n + (n == 1 ? " reserva activa" : " reservas activas")),
                 BorderLayout.NORTH);
 
-        JButton btnCerrar = crearBotonPrimario(n == 0 ? "Ver vehículos" : "Cerrar");
+        JButton btnCerrar = crearBotonPrimario(reservas.isEmpty() ? "Ver vehículos" : "Cerrar");
+        final DialogoInterno[] dialog = new DialogoInterno[1];
 
-        if (n == 0) {
+        if (reservas.isEmpty()) {
             JPanel vacio = new JPanel();
             vacio.setBackground(COLOR_CAMPO);
             vacio.setBorder(BorderFactory.createLineBorder(COLOR_BORDE));
             vacio.setLayout(new BoxLayout(vacio, BoxLayout.Y_AXIS));
 
-            JLabel l1 = new JLabel("Todavía no has solicitado reservas");
+            JLabel l1 = new JLabel("Todavía no has hecho reservas");
             l1.setForeground(COLOR_TEXTO);
             l1.setFont(new Font("SansSerif", Font.BOLD, 18));
             l1.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -2768,8 +3069,8 @@ public class MainPublicView extends JPanel {
             lista.setOpaque(false);
             lista.setLayout(new BoxLayout(lista, BoxLayout.Y_AXIS));
 
-            for (ReservaSesion r : reservasSesion) {
-                JPanel tarjeta = crearTarjetaReserva(r);
+            for (Alquiler a : reservas) {
+                JPanel tarjeta = crearTarjetaAlquiler(a, () -> confirmarCancelacion(a, usuarioId, dialog[0]));
                 tarjeta.setAlignmentX(Component.LEFT_ALIGNMENT);
                 lista.add(tarjeta);
                 lista.add(Box.createVerticalStrut(12));
@@ -2795,20 +3096,83 @@ public class MainPublicView extends JPanel {
         panelBoton.add(btnCerrar);
         cuerpo.add(panelBoton, BorderLayout.SOUTH);
 
-        DialogoInterno dialog = crearDialogoRentCar(this, "Mis reservas", 800, 640, cuerpo);
-        btnCerrar.addActionListener(e -> dialog.dispose());
-        dialog.getRootPane().setDefaultButton(btnCerrar);
-        dialog.setVisible(true);
+        dialog[0] = crearDialogoRentCar(this, "Mis reservas", 800, 640, cuerpo);
+        btnCerrar.addActionListener(e -> dialog[0].dispose());
+        dialog[0].getRootPane().setDefaultButton(btnCerrar);
+        dialog[0].setVisible(true);
     }
 
-    /** Tarjeta de una reserva: foto del vehículo a la izquierda y los datos a la derecha. */
-    private JPanel crearTarjetaReserva(ReservaSesion r) {
+    private void confirmarCancelacion(Alquiler a, int usuarioId, DialogoInterno listaAbierta) {
+        final boolean[] si = {false};
+
+        JPanel cuerpo = new JPanel(new BorderLayout(0, 16));
+        cuerpo.setOpaque(false);
+        cuerpo.setBorder(BorderFactory.createEmptyBorder(26, 32, 24, 32));
+
+        JLabel lblTitulo = new JLabel("¿Cancelar esta reserva?");
+        lblTitulo.setForeground(COLOR_TEXTO);
+        lblTitulo.setFont(new Font("SansSerif", Font.BOLD, 22));
+        cuerpo.add(lblTitulo, BorderLayout.NORTH);
+
+        JTextArea txt = new JTextArea((a.marca + " " + a.modelo).trim() + " · " + a.placa + "\n"
+                + formatearFecha(java.sql.Date.valueOf(a.recogida)) + " → "
+                + formatearFecha(java.sql.Date.valueOf(a.devolucion)));
+        txt.setEditable(false);
+        txt.setFocusable(false);
+        txt.setOpaque(false);
+        txt.setForeground(COLOR_SECUNDARIO);
+        txt.setFont(new Font("SansSerif", Font.PLAIN, 15));
+        cuerpo.add(txt, BorderLayout.CENTER);
+
+        JButton btnNo = crearBotonSecundario("Conservarla");
+        JButton btnSi = crearBotonPrimario("Sí, cancelar");
+        JPanel botones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        botones.setOpaque(false);
+        botones.add(btnNo);
+        botones.add(btnSi);
+        cuerpo.add(botones, BorderLayout.SOUTH);
+
+        DialogoInterno dialog = crearDialogoRentCar(this, "Cancelar reserva", 480, 260, cuerpo);
+        btnNo.addActionListener(e -> dialog.dispose());
+        btnSi.addActionListener(e -> {
+            si[0] = true;
+            dialog.dispose();
+        });
+        dialog.setVisible(true);
+
+        if (!si[0]) {
+            return;
+        }
+        Async.run(
+                () -> new AlquilerDAO().cancelar(a.id, usuarioId),
+                ok -> {
+                    if (listaAbierta != null) {
+                        listaAbierta.dispose();
+                    }
+                    if (ok) {
+                        refrescarDisponibilidad();   // el vehículo queda libre y se avisa a quien lo esperaba
+                        NotificacionesRentCar.info(
+                                "Reserva cancelada",
+                                "Tu reserva del " + (a.marca + " " + a.modelo).trim() + " fue cancelada.");
+                        mostrarMisReservas();      // se vuelve a cargar la lista
+                    } else {
+                        mostrarMensajePersonalizado("No se pudo cancelar la reserva.", "Error");
+                    }
+                },
+                ex -> mostrarMensajePersonalizado("No se pudo conectar con la base de datos.", "Sin conexión"));
+    }
+
+    /** Tarjeta de una reserva: foto a la izquierda, datos a la derecha y botón para cancelar. */
+    private JPanel crearTarjetaAlquiler(Alquiler r, Runnable alCancelar) {
+
+        boolean activa = "ACTIVA".equals(r.estado);
+        Color colorTexto = activa ? COLOR_TEXTO : COLOR_SECUNDARIO;
 
         JPanel tarjeta = new JPanel(new BorderLayout());
         tarjeta.setBackground(COLOR_CARD);
         tarjeta.setBorder(BorderFactory.createLineBorder(COLOR_BORDE));
-        tarjeta.setPreferredSize(new Dimension(0, 160));
-        tarjeta.setMaximumSize(new Dimension(Integer.MAX_VALUE, 160));
+        tarjeta.setPreferredSize(new Dimension(0, 172));
+        tarjeta.setMaximumSize(new Dimension(Integer.MAX_VALUE, 172));
 
         ImagenCoverLabel foto = new ImagenCoverLabel(cargarImagenOriginal(r.foto));
         foto.setPreferredSize(new Dimension(230, 0));
@@ -2816,19 +3180,20 @@ public class MainPublicView extends JPanel {
 
         JPanel info = new JPanel(new BorderLayout(0, 6));
         info.setOpaque(false);
-        info.setBorder(BorderFactory.createEmptyBorder(14, 18, 14, 18));
+        info.setBorder(BorderFactory.createEmptyBorder(12, 18, 12, 18));
 
         JPanel textos = new JPanel();
         textos.setOpaque(false);
         textos.setLayout(new BoxLayout(textos, BoxLayout.Y_AXIS));
 
-        JLabel tipo = new JLabel((r.esMoto() ? "MOTOCICLETA" : "AUTOMÓVIL") + "  ·  " + r.marca.toUpperCase(Locale.ROOT));
-        tipo.setForeground(COLOR_ROJO_HOVER);
+        JLabel tipo = new JLabel((r.esMoto() ? "MOTOCICLETA" : "AUTOMÓVIL") + "  ·  " + r.marca.toUpperCase(Locale.ROOT)
+                + (activa ? "" : "  ·  CANCELADA"));
+        tipo.setForeground(activa ? COLOR_ROJO_HOVER : COLOR_SECUNDARIO);
         tipo.setFont(new Font("SansSerif", Font.BOLD, 11));
         tipo.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel modelo = new JLabel(r.modelo);
-        modelo.setForeground(COLOR_TEXTO);
+        modelo.setForeground(colorTexto);
         modelo.setFont(new Font("SansSerif", Font.BOLD, 19));
         modelo.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -2837,42 +3202,65 @@ public class MainPublicView extends JPanel {
         lugar.setFont(new Font("SansSerif", Font.PLAIN, 13));
         lugar.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel fechas = new JLabel(r.recogida + " → " + r.devolucion + "  ·  " + r.duracion());
+        JLabel fechas = new JLabel(formatearFecha(java.sql.Date.valueOf(r.recogida)) + " → "
+                + formatearFecha(java.sql.Date.valueOf(r.devolucion)) + "  ·  " + r.dias + (r.dias == 1 ? " día" : " días"));
         fechas.setForeground(COLOR_SECUNDARIO);
         fechas.setFont(new Font("SansSerif", Font.PLAIN, 13));
         fechas.setAlignmentX(Component.LEFT_ALIGNMENT);
 
+        JLabel pago = new JLabel(r.nombreCompleto() + "  ·  " + r.descripcionPago());
+        pago.setForeground(COLOR_SECUNDARIO);
+        pago.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        pago.setAlignmentX(Component.LEFT_ALIGNMENT);
+
         textos.add(tipo);
-        textos.add(Box.createVerticalStrut(4));
+        textos.add(Box.createVerticalStrut(3));
         textos.add(modelo);
-        textos.add(Box.createVerticalStrut(4));
+        textos.add(Box.createVerticalStrut(3));
         textos.add(lugar);
         textos.add(Box.createVerticalStrut(2));
         textos.add(fechas);
+        textos.add(Box.createVerticalStrut(2));
+        textos.add(pago);
         info.add(textos, BorderLayout.CENTER);
 
         JPanel pie = new JPanel(new BorderLayout());
         pie.setOpaque(false);
         pie.add(crearPlacaColombiana(r.placa), BorderLayout.WEST);
 
-        JPanel total = new JPanel();
-        total.setOpaque(false);
-        total.setLayout(new BoxLayout(total, BoxLayout.Y_AXIS));
-        JLabel lblTotal = new JLabel("TOTAL ESTIMADO");
+        JPanel derecha = new JPanel();
+        derecha.setOpaque(false);
+        derecha.setLayout(new BoxLayout(derecha, BoxLayout.Y_AXIS));
+        JLabel lblTotal = new JLabel("TOTAL");
         lblTotal.setForeground(COLOR_SECUNDARIO);
         lblTotal.setFont(new Font("SansSerif", Font.BOLD, 10));
         lblTotal.setAlignmentX(Component.RIGHT_ALIGNMENT);
-        JLabel valor = new JLabel(r.total);
-        valor.setForeground(COLOR_TEXTO);
+        JLabel valor = new JLabel(formatearPrecio(r.total));
+        valor.setForeground(colorTexto);
         valor.setFont(new Font("SansSerif", Font.BOLD, 22));
         valor.setAlignmentX(Component.RIGHT_ALIGNMENT);
-        total.add(lblTotal);
-        total.add(valor);
-        pie.add(total, BorderLayout.EAST);
+        derecha.add(lblTotal);
+        derecha.add(valor);
+        pie.add(derecha, BorderLayout.EAST);
 
         info.add(pie, BorderLayout.SOUTH);
         tarjeta.add(info, BorderLayout.CENTER);
 
+        if (activa) {
+            JButton cancelar = new JButton("Cancelar");
+            cancelar.setForeground(COLOR_SECUNDARIO);
+            cancelar.setBackground(COLOR_CARD);
+            cancelar.setFont(new Font("SansSerif", Font.BOLD, 11));
+            cancelar.setFocusPainted(false);
+            cancelar.setContentAreaFilled(false);
+            cancelar.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+            cancelar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            cancelar.addActionListener(e -> alCancelar.run());
+            JPanel arriba = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+            arriba.setOpaque(false);
+            arriba.add(cancelar);
+            info.add(arriba, BorderLayout.NORTH);
+        }
         return tarjeta;
     }
 

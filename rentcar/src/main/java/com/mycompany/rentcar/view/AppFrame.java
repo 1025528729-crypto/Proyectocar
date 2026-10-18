@@ -69,6 +69,9 @@ public class AppFrame extends JFrame {
         new LoginPresenter(acceso, this);
         crearCapaAcceso();
 
+        // Notificaciones dentro del programa: avisos emergentes + campana con el historial
+        NotificacionesRentCar.instalarEn(getRootPane(), barra);
+
         refrescarBarra();
         mostrar(CATALOGO);
 
@@ -115,16 +118,19 @@ public class AppFrame extends JFrame {
 
         refrescarBarra();
         mostrar(GESTION);
+        catalogo.refrescarDisponibilidad();   // avisos pendientes y reservas "mías"
     }
 
     public void cerrarSesion() {
         this.usuario = null;
+        NotificacionesRentCar.limpiar();   // las notificaciones son de la sesión
         if (gestion != null) {
             contenido.remove(gestion);
             gestion = null;
         }
         refrescarBarra();
         mostrar(CATALOGO);
+        catalogo.refrescarDisponibilidad();
     }
 
     // =========================================================
@@ -172,6 +178,7 @@ public class AppFrame extends JFrame {
     private void refrescarBarra() {
         tabGestion.setVisible(usuario != null);
         zonaUsuario.removeAll();
+        anadirZona(NotificacionesRentCar.campana());
         anadirZona(crearBotonTema());
 
         if (usuario == null) {
@@ -279,6 +286,7 @@ public class AppFrame extends JFrame {
 
     public void abrirAcceso() {
         if (usuario != null) return;
+        NotificacionesRentCar.cerrarCentro();
         if (capaAcceso.isVisible()) {
             cerrarAcceso();
             return;
